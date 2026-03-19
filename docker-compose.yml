@@ -1,0 +1,31 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: fm-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: 1234567
+      MYSQL_DATABASE: funmate_planet
+    ports:
+      - "3306:3306"
+    volumes:
+      - ./mysql_data:/var/lib/mysql
+
+  redis:
+    image: redis:latest
+    container_name: fm-redis
+    ports:
+      - "6379:6379"
+
+  backend:
+    build: ./backend
+    container_name: fm-backend
+    ports:
+      - "8080:8080"
+    depends_on:
+      - mysql
+      - redis
+    environment:
+      # 这里定义的环境变量会被 application.yml 中的 ${} 语法读取
+      DB_HOST: mysql
+      DB_PASSWORD: 1234567
+      REDIS_HOST: redis

@@ -1,0 +1,30 @@
+server:
+  port: 8080
+
+spring:
+  # 数据库配置
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    # 使用占位符，默认 localhost，Docker 运行时会被环境变量 DB_HOST 覆盖
+    url: jdbc:mysql://${DB_HOST:localhost}:3306/funmate_planet?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai
+    username: root
+    password: ${DB_PASSWORD:1234567}
+
+  # JPA 配置
+  jpa:
+    hibernate:
+      ddl-auto: update  # 自动同步实体类到数据库表结构
+    show-sql: true      # 控制台显示 SQL
+    properties:
+      hibernate:
+        format_sql: true  # 格式化 SQL
+    open-in-view: false   # 关闭 OSIV，推荐设置
+    
+  # Redis 配置
+  data:
+    redis:
+      # 默认 localhost，Docker 运行时会被环境变量 REDIS_HOST 覆盖
+      host: ${REDIS_HOST:localhost}
+      port: 6379
+      database: 0
+      timeout: 3000ms
