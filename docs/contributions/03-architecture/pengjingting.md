@@ -27,7 +27,7 @@
 - [x] database.md：完成了详细的表结构设计、字段约束及建表 SQL 脚本。
 
 ## PR 链接
-- PR #1: https://github.com/point423/FunMate-Planet/pull/
+- PR : https://github.com/point423/FunMate-Planet/pull/6
 
 ## 遇到的问题和解决
 1. **问题**：最开始建了一个pom.xml在最外层，为后面做准备。后来又在backend文件夹里建了一个pom.xml，两个混在一起导致maven依赖出错。
