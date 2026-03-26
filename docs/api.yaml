@@ -1,0 +1,1026 @@
+openapi: 3.0.0
+info:
+  title: 趣搭星球 API
+  version: 1.0.0
+  description: 趣搭星球 - 基于兴趣的线下活动搭子匹配平台（支持单向关注 + 双向好友双轨制）
+servers:
+  - url: http://localhost:8080/api
+    description: 本地开发环境
+tags:
+  - name: 认证
+    description: 用户注册、登录、登出
+  - name: 用户
+    description: 用户信息、主页、资料编辑
+  - name: 关注
+    description: 单向关注/取消关注、粉丝列表、关注列表
+  - name: 好友
+    description: 双向好友申请、好友列表、申请管理
+  - name: 活动
+    description: 活动创建、参与、状态管理
+  - name: 日记
+    description: 活动日记发布、查看
+  - name: 评价
+    description: 活动结束后用户互评
+  - name: 聊天
+    description: 消息发送、会话管理
+  - name: 发现
+    description: 附近的人、排行榜、标签筛选
+
+paths:
+  # ==================== 认证模块 ====================
+  /auth/register:
+    post:
+      tags: [认证]
+      summary: 用户注册
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: 注册成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '400':
+          description: 参数错误
+
+  /auth/login:
+    post:
+      tags: [认证]
+      summary: 用户登录
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: 登录成功，返回 JWT Token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+
+  /auth/logout:
+    post:
+      tags: [认证]
+      summary: 用户登出
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: 登出成功
+
+  # ==================== 用户模块 ====================
+  /users/me:
+    get:
+      tags: [用户]
+      summary: 获取当前登录用户信息
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+    put:
+      tags: [用户]
+      summary: 编辑当前用户资料
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProfileRequest'
+      responses:
+        '200':
+          description: 更新成功
+
+  /users/{id}:
+    get:
+      tags: [用户]
+      summary: 获取指定用户的主页信息
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserHomepage'
+
+  /users/location:
+    post:
+      tags: [用户]
+      summary: 上报当前用户地理位置
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateLocationRequest'
+      responses:
+        '200':
+          description: 上报成功
+
+  # ==================== 关注模块（单向） ====================
+  /users/{id}/follow:
+    post:
+      tags: [关注]
+      summary: 关注/取消关注用户（单向，无需对方同意）
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - follow
+              properties:
+                follow:
+                  type: boolean
+                  description: true=关注，false=取消关注
+      responses:
+        '200':
+          description: 操作成功
+
+  /users/{id}/followers:
+    get:
+      tags: [关注]
+      summary: 获取指定用户的粉丝列表
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: pageNum
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageResult'
+
+  /users/{id}/following:
+    get:
+      tags: [关注]
+      summary: 获取指定用户的关注列表
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: pageNum
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageResult'
+
+  # ==================== 好友模块（双向） ====================
+  /friends:
+    get:
+      tags: [好友]
+      summary: 获取我的双向好友列表
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FriendInfo'
+
+  /friends/requests:
+    get:
+      tags: [好友]
+      summary: 获取好友申请列表（收到的+发出的）
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FriendRequestsResponse'
+
+  /friends/requests:
+    post:
+      tags: [好友]
+      summary: 发送双向好友申请
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - targetUserId
+              properties:
+                targetUserId:
+                  type: integer
+                  description: 被申请人ID
+      responses:
+        '201':
+          description: 申请已发送
+
+  /friends/requests/{id}/handle:
+    post:
+      tags: [好友]
+      summary: 处理好友申请（接受/拒绝）
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - accept
+              properties:
+                accept:
+                  type: boolean
+                  description: true=接受（成为双向好友），false=拒绝
+      responses:
+        '200':
+          description: 处理成功
+
+  # ==================== 活动模块 ====================
+  /activities:
+    get:
+      tags: [活动]
+      summary: 分页获取活动列表
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: pageNum
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            default: 10
+        - name: status
+          in: query
+          schema:
+            type: integer
+            description: 活动状态 (0:招募中, 1:进行中, 2:已结束)
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageResult'
+    post:
+      tags: [活动]
+      summary: 创建活动
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateActivityRequest'
+      responses:
+        '201':
+          description: 创建成功
+
+  /activities/{id}:
+    get:
+      tags: [活动]
+      summary: 获取活动详情
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityDetail'
+    put:
+      tags: [活动]
+      summary: 更新活动信息
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateActivityRequest'
+      responses:
+        '200':
+          description: 更新成功
+
+  /activities/{id}/join:
+    post:
+      tags: [活动]
+      summary: 参与活动
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 参与成功
+
+  /activities/{id}/end:
+    post:
+      tags: [活动]
+      summary: 结束活动（仅发起人）
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 活动已结束，触发评价提示
+
+  # ==================== 日记模块 ====================
+  /diaries:
+    get:
+      tags: [日记]
+      summary: 获取日记列表（我的/指定用户的）
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: userId
+          in: query
+          schema:
+            type: integer
+            description: 不传则查自己的
+        - name: pageNum
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageResult'
+    post:
+      tags: [日记]
+      summary: 发布活动日记
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDiaryRequest'
+      responses:
+        '201':
+          description: 发布成功
+
+  /diaries/{id}:
+    get:
+      tags: [日记]
+      summary: 获取日记详情
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DiaryDetail'
+
+  # ==================== 评价模块 ====================
+  /evaluations:
+    post:
+      tags: [评价]
+      summary: 评价活动伙伴
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateEvaluationRequest'
+      responses:
+        '201':
+          description: 评价成功
+
+  # ==================== 聊天模块 ====================
+  /chat/conversations:
+    get:
+      tags: [聊天]
+      summary: 获取我的会话列表（仅双向好友可见）
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ConversationInfo'
+
+  /chat/messages:
+    get:
+      tags: [聊天]
+      summary: 获取与指定用户的聊天记录（仅双向好友可见）
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: targetUserId
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: pageNum
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageResult'
+    post:
+      tags: [聊天]
+      summary: 发送消息（仅双向好友可见）
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendMessageRequest'
+      responses:
+        '201':
+          description: 发送成功
+
+  # ==================== 发现模块 ====================
+  /discover/nearby:
+    get:
+      tags: [发现]
+      summary: 获取附近的搭子列表（基于Redis Geo）
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: radius
+          in: query
+          schema:
+            type: number
+            default: 10
+            description: 搜索半径（公里）
+        - name: tags
+          in: query
+          schema:
+            type: string
+            description: 兴趣标签，逗号分隔（多选筛选）
+        - name: pageNum
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageResult'
+
+  /discover/random:
+    get:
+      tags: [发现]
+      summary: 自动匹配：随机推荐一位搭子
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserHomepage'
+
+  /discover/ranking:
+    get:
+      tags: [发现]
+      summary: 获取每周好评排行榜 Top 榜
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RankingItem'
+
+# ==================== 数据模型定义 ====================
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    # 通用响应
+    ApiResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 200
+        message:
+          type: string
+          example: success
+        data:
+          type: object
+
+    # 分页结果
+    PageResult:
+      type: object
+      properties:
+        total:
+          type: integer
+        list:
+          type: array
+          items: {}
+
+    # 认证相关
+    RegisterRequest:
+      type: object
+      required:
+        - username
+        - password
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+        nickname:
+          type: string
+
+    LoginRequest:
+      type: object
+      required:
+        - username
+        - password
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+
+    LoginResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 200
+        data:
+          type: object
+          properties:
+            token:
+              type: string
+              example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+            isNewUser:
+              type: boolean
+              description: 是否为新注册用户（用于引导标签选择）
+
+    # 用户相关
+    UserProfile:
+      type: object
+      properties:
+        id:
+          type: integer
+        username:
+          type: string
+        nickname:
+          type: string
+        avatar:
+          type: string
+        tags:
+          type: string
+        followingCount:
+          type: integer
+          description: 关注数
+        followerCount:
+          type: integer
+          description: 粉丝数
+        friendCount:
+          type: integer
+          description: 双向好友数
+        averageScore:
+          type: number
+          format: float
+
+    UpdateProfileRequest:
+      type: object
+      properties:
+        nickname:
+          type: string
+        avatar:
+          type: string
+        tags:
+          type: string
+        age:
+          type: integer
+        gender:
+          type: integer
+
+    UpdateLocationRequest:
+      type: object
+      required:
+        - longitude
+        - latitude
+      properties:
+        longitude:
+          type: number
+          format: double
+        latitude:
+          type: number
+          format: double
+
+    UserHomepage:
+      type: object
+      properties:
+        id:
+          type: integer
+        nickname:
+          type: string
+        avatar:
+          type: string
+        tags:
+          type: string
+        activityCount:
+          type: integer
+          description: 活动数
+        averageScore:
+          type: number
+          format: float
+          description: 评分
+        rank:
+          type: integer
+          description: 排名
+        isFollowing:
+          type: boolean
+          description: 当前用户是否已关注TA
+        isFriend:
+          type: boolean
+          description: 当前用户是否与TA是双向好友
+        publicDiaries:
+          type: array
+          items:
+            $ref: '#/components/schemas/DiarySummary'
+        recentActivities:
+          type: array
+          items:
+            $ref: '#/components/schemas/ActivitySummary'
+
+    # 好友相关
+    FriendInfo:
+      type: object
+      properties:
+        id:
+          type: integer
+        nickname:
+          type: string
+        avatar:
+          type: string
+
+    FriendRequest:
+      type: object
+      properties:
+        id:
+          type: integer
+        user:
+          $ref: '#/components/schemas/FriendInfo'
+        type:
+          type: string
+          description: incoming=收到的, outgoing=发出的
+        createTime:
+          type: string
+          format: date-time
+
+    FriendRequestsResponse:
+      type: object
+      properties:
+        incoming:
+          type: array
+          items:
+            $ref: '#/components/schemas/FriendRequest'
+        outgoing:
+          type: array
+          items:
+            $ref: '#/components/schemas/FriendRequest'
+
+    # 活动相关
+    CreateActivityRequest:
+      type: object
+      required:
+        - title
+        - activityTime
+        - location
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        activityTime:
+          type: string
+          format: date-time
+        location:
+          type: string
+        maxParticipants:
+          type: integer
+
+    UpdateActivityRequest:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        activityTime:
+          type: string
+          format: date-time
+        location:
+          type: string
+
+    ActivitySummary:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        activityTime:
+          type: string
+          format: date-time
+        location:
+          type: string
+
+    ActivityDetail:
+      type: object
+      properties:
+        id:
+          type: integer
+        creator:
+          $ref: '#/components/schemas/FriendInfo'
+        title:
+          type: string
+        description:
+          type: string
+        activityTime:
+          type: string
+          format: date-time
+        location:
+          type: string
+        status:
+          type: integer
+        participants:
+          type: array
+          items:
+            $ref: '#/components/schemas/FriendInfo'
+
+    # 日记相关
+    DiarySummary:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        coverImage:
+          type: string
+        createTime:
+          type: string
+          format: date-time
+
+    CreateDiaryRequest:
+      type: object
+      required:
+        - activityId
+      properties:
+        activityId:
+          type: integer
+        content:
+          type: string
+        images:
+          type: string
+          description: 图片URL列表，JSON数组格式
+        tags:
+          type: string
+
+    DiaryDetail:
+      type: object
+      properties:
+        id:
+          type: integer
+        user:
+          $ref: '#/components/schemas/FriendInfo'
+        activity:
+          $ref: '#/components/schemas/ActivitySummary'
+        content:
+          type: string
+        images:
+          type: array
+          items:
+            type: string
+        tags:
+          type: string
+        createTime:
+          type: string
+          format: date-time
+
+    # 评价相关
+    CreateEvaluationRequest:
+      type: object
+      required:
+        - targetUserId
+        - activityId
+        - scoreLevel
+      properties:
+        targetUserId:
+          type: integer
+        activityId:
+          type: integer
+        scoreLevel:
+          type: integer
+          description: 1:低, 2:中, 3:高
+
+    # 聊天相关
+    ConversationInfo:
+      type: object
+      properties:
+        targetUser:
+          $ref: '#/components/schemas/FriendInfo'
+        lastMessage:
+          type: string
+        lastMessageTime:
+          type: string
+          format: date-time
+        unreadCount:
+          type: integer
+
+    SendMessageRequest:
+      type: object
+      required:
+        - receiverId
+        - content
+      properties:
+        receiverId:
+          type: integer
+        content:
+          type: string
+
+    ChatMessage:
+      type: object
+      properties:
+        id:
+          type: integer
+        senderId:
+          type: integer
+        content:
+          type: string
+        isRead:
+          type: boolean
+        createTime:
+          type: string
+          format: date-time
+
+    # 发现相关
+    RankingItem:
+      type: object
+      properties:
+        rank:
+          type: integer
+        user:
+          $ref: '#/components/schemas/FriendInfo'
+        score:
+          type: number
+          format: float
