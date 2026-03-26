@@ -22,7 +22,7 @@ public class TestConnectionController {
     private JdbcTemplate jdbcTemplate;
 
     @Autowired
-    private RedisTemplate<Object, Object> redisTemplate;
+    private RedisTemplate<String, Object> redisTemplate;
 
     @GetMapping("/db")
     public Map<String, Object> testDatabase() {
@@ -51,17 +51,17 @@ public class TestConnectionController {
             // 测试 Redis 连接
             String testKey = "test:connection";
             String testValue = "Redis 连接测试 " + System.currentTimeMillis();
-            
+
             // 写入数据
             redisTemplate.opsForValue().set(testKey, testValue, 10, TimeUnit.SECONDS);
-            
+
             // 读取数据
             String value = (String) redisTemplate.opsForValue().get(testKey);
-            
-            // 检查 Redis 服务器信息（修复类型错误）
+
+            // 检查 Redis 服务器信息
             Properties redisInfo = redisTemplate.getConnectionFactory()
                     .getConnection().serverCommands().info();
-            
+
             result.put("success", true);
             result.put("message", "Redis 连接成功");
             result.put("test_write_read", value != null ? "成功" : "失败");
