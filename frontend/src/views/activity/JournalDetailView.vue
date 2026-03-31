@@ -107,9 +107,12 @@ const openModal = (type: 'participants' | 'location' | 'lasttime') => {
 const rate = async (r: 'good' | 'neutral' | 'bad') => {
   if (!diary.value) return
   try {
-    // Rate each participant (except self)
+    // ✅ 改为 scoreLevel (1-3)
+    const scoreMap = { good: 3, neutral: 2, bad: 1 }
+    const score = scoreMap[r] as 1 | 2 | 3
+    
     for (const p of diary.value.participants) {
-      await ratePartner(p.userId, r)
+      await ratePartner(p.userId, score)
     }
     ElMessage.success('Rating submitted!')
   } catch { /* handled */ }

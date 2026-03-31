@@ -23,16 +23,21 @@ public class FriendController {
         return Result.success(userRepository.findAll());
     }
 
+    // @PostMapping("/requests")
+    // public Result<String> sendRequest(@RequestBody Map<String, Object> body) {
+    // return Result.success("好友申请已发送至用户 ID: " + body.get("targetUserId"));
+    // }
+
     @PostMapping("/requests")
     public Result<String> sendRequest(@RequestBody Map<String, Object> body) {
-        return Result.success("好友申请已发送至用户 ID: " + body.get("targetUserId"));
+        return Result.created("好友申请已发送至用户 ID: " + body.get("targetUserId"));
     }
 
     @GetMapping("/requests")
     public Result<Map<String, Object>> getRequests() {
         Map<String, Object> data = new HashMap<>();
-        data.put("incoming", new String[]{});
-        data.put("outgoing", new String[]{});
+        data.put("incoming", new String[] {});
+        data.put("outgoing", new String[] {});
         return Result.success(data);
     }
 

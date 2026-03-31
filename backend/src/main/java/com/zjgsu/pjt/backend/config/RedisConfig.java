@@ -1,15 +1,16 @@
-package com.zjgsu.pjt.backend.comfig;
+package com.zjgsu.pjt.backend.config;
 
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 
-// This file was accidentally placed in `comfig` folder while its package was `config`.
-// We intentionally keep a non-spring-managed copy here to avoid duplicate bean registration.
+@Configuration
 public class RedisConfig {
 
-    // Note: not annotated with @Bean so this method won't register a Spring bean.
+    @Bean
     public RedisTemplate<String, Object> redisTemplate(RedisConnectionFactory factory) {
         RedisTemplate<String, Object> template = new RedisTemplate<>();
         template.setConnectionFactory(factory);
@@ -26,3 +27,4 @@ public class RedisConfig {
         return template;
     }
 }
+

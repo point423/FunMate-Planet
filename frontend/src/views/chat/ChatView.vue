@@ -247,7 +247,11 @@ import { ref, computed, nextTick, onMounted } from 'vue'
 import { Search, MoreFilled } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import ActivityCalendar from '@/components/activity/ActivityCalendar.vue'
-import { getFriends, getFriendApplications, acceptFriendRequest, declineFriendRequest } from '@/api/user'
+import { 
+  getFriends, 
+  getFriendApplications, 
+  handleFriendRequest  // ✅ 改为 handleFriendRequest
+} from '@/api/user'
 import { formatDistance } from '@/utils/format'
 import type { FriendApplication } from '@/types/user'
 import { useUserStore } from '@/stores/user'
@@ -344,7 +348,7 @@ const sendMessage = () => {
 
 const acceptApplication = async (app: FriendApplication) => {
   try {
-    await acceptFriendRequest(app.id)
+    await handleFriendRequest(app.id, true)  // ✅ 改为统一接口
     ElMessage.success(`${app.fromUser.nickname} is now your partner!`)
     applications.value = applications.value.filter(a => a.id !== app.id)
     activeApplication.value = null
@@ -354,7 +358,7 @@ const acceptApplication = async (app: FriendApplication) => {
 
 const declineApplication = async (app: FriendApplication) => {
   try {
-    await declineFriendRequest(app.id)
+    await handleFriendRequest(app.id, false)  // ✅ 改为统一接口
     ElMessage.info('Application declined')
     applications.value = applications.value.filter(a => a.id !== app.id)
     activeApplication.value = null

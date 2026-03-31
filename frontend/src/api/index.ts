@@ -21,7 +21,7 @@ service.interceptors.request.use(
 service.interceptors.response.use(
   (response: AxiosResponse) => {
     const { code, message, data } = response.data
-    if (code === 200) return data
+    if (code === 200 || code === 201) return data  // ✅ 接受创建类操作返回 201
     ElMessage.error(message || '请求失败')
     return Promise.reject(new Error(message || '请求失败'))
   },

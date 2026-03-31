@@ -34,13 +34,22 @@ import { useAuth } from '@/composables/useAuth'
 import { ElMessage } from 'element-plus'
 
 const { login } = useAuth()
-const loading   = ref(false)
-const form      = reactive({ username: '', password: '' })
+const loading = ref(false)
+const form = reactive({ username: '', password: '' })
 
 const onSubmit = async () => {
-  if (!form.username || !form.password) { ElMessage.warning('Please fill in all fields'); return }
+  if (!form.username || !form.password) {
+    ElMessage.warning('Please fill in all fields')
+    return
+  }
   loading.value = true
-  try { await login(form) } catch { /* handled by interceptor */ } finally { loading.value = false }
+  try {
+    await login(form)
+  } catch {
+    // handled by interceptor
+  } finally {
+    loading.value = false
+  }
 }
 </script>
 
