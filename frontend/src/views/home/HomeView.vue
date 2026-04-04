@@ -70,7 +70,7 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { getRecommendations } from '@/api/dazi'
+import { getNearbyUsers, getRandomUser, getLeaderboard } from '@/api/dazi'  // ✅ 改导入
 import { sendFriendRequest } from '@/api/user'
 import { useLocation } from '@/composables/useLocation'
 import { formatDistance, formatScore } from '@/utils/format'
@@ -94,7 +94,7 @@ const orbitPositions = [
 
 const loadOrbitUsers = async () => {
   try {
-    const data = await getRecommendations({ radius: 10, pageSize: 6 }) as NearbyUser[]
+    const data = await getNearbyUsers({ radius: 10, pageSize: 6 }) as NearbyUser[]  // ✅ 改函数名
     orbitUsers.value = data.slice(0, 6)
   } catch {
     // keep empty — UI gracefully shows no avatars
@@ -110,7 +110,7 @@ let   matchIdx     = 0
 const openAutoMatch = async () => {
   if (matchPool.length === 0) {
     try {
-      matchPool = await getRecommendations({ radius: 10, pageSize: 20 }) as NearbyUser[]
+      matchPool = await getNearbyUsers({ radius: 10, pageSize: 20 }) as NearbyUser[]  // ✅ 改函数名
     } catch {
       ElMessage.error('Failed to load nearby users')
       return

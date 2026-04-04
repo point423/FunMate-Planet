@@ -119,7 +119,7 @@ import TagSelector from '@/components/profile/TagSelector.vue'
 import { useUserStore } from '@/stores/user'
 import { useActivityStore } from '@/stores/activity'
 import { uploadImage } from '@/api/activity'
-import { updateProfile } from '@/api/user'
+import { updateProfile } from '@/api/user'  // ✅ 改为直接用 updateProfile
 import { formatDate } from '@/utils/format'
 
 const router    = useRouter()
@@ -177,7 +177,7 @@ const onAvatarChange = async (e: Event) => {
   if (!file) return
   try {
     const url = await uploadImage(file) as string
-    await updateProfile({ avatar: url } as Parameters<typeof updateProfile>[0])
+    await updateProfile({ avatar: url })  // ✅ 改为通用 updateProfile
     await userStore.fetchUserInfo()
     ElMessage.success('Avatar updated!')
   } catch { /* handled */ }

@@ -28,3 +28,10 @@ spring:
       port: 6379
       database: 0
       timeout: 3000ms
+jwt:
+  secret: 0123456789abcdef0123456789abcdef
+  expire-seconds: 86400
+# 文件上传配置
+upload:
+  dir: uploads/
+  url: http://localhost:8080/static/

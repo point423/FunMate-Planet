@@ -1,15 +1,20 @@
 // src/api/auth.ts
 import request from './index'
-import type { LoginForm, RegisterForm } from '@/types/user'
+import type { LoginForm, RegisterForm, UserInfo } from '@/types/user'
+
+export interface LoginResponse {
+token: string
+isNewUser: boolean
+}
 
 export const login = (data: LoginForm) =>
-  request.post<{ token: string; userInfo: unknown }>('/auth/login', data)
+request.post<LoginResponse>('/auth/login', data)
 
 export const register = (data: RegisterForm) =>
-  request.post('/auth/register', data)
+request.post('/auth/register', data)
 
 export const getUserInfo = () =>
-  request.get('/users/me')
+request.get<UserInfo>('/users/me')
 
 export const reportLocation = (data: { longitude: number; latitude: number }) =>
-  request.post('/users/location', data)
+request.post('/users/location', data)

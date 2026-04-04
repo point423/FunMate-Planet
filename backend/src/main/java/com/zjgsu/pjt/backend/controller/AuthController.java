@@ -3,6 +3,7 @@ package com.zjgsu.pjt.backend.controller;
 import com.zjgsu.pjt.backend.common.Result;
 import com.zjgsu.pjt.backend.entity.User;
 import com.zjgsu.pjt.backend.repository.UserRepository;
+import com.zjgsu.pjt.backend.util.JwtUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -17,6 +18,9 @@ public class AuthController {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private JwtUtil jwtUtil;
 
     @PostMapping("/register")
     public Result<String> register(@RequestBody User user) {
@@ -34,9 +38,10 @@ public class AuthController {
 
         Optional<User> userOpt = userRepository.findByUsername(username);
         if (userOpt.isPresent() && userOpt.get().getPassword().equals(password)) {
+            User user = userOpt.get();
             Map<String, Object> data = new HashMap<>();
-            data.put("token", "mock-jwt-token-" + userOpt.get().getId());
-            data.put("isNewUser", false);
+            data.put("token", jwtUtil.generateToken(user.getId()));
+            data.put("isNewUser", user.getTags() == null || user.getTags().isBlank());
             return Result.success(data);
         }
         return Result.error(401, "用户名或密码错误");

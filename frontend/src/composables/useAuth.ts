@@ -3,26 +3,32 @@ import { useUserStore } from '@/stores/user'
 import { useRouter } from 'vue-router'
 import type { LoginForm, RegisterForm } from '@/types/user'
 
-/** Wraps login / logout with router navigation */
 export function useAuth() {
-  const userStore = useUserStore()
-  const router = useRouter()
+const userStore = useUserStore()
+const router = useRouter()
 
-  const login = async (form: LoginForm) => {
-    await userStore.loginAction(form)
-    const redirect = router.currentRoute.value.query.redirect as string
-    router.push(redirect || '/')
-  }
+const login = async (form: LoginForm) => {
+const result = await userStore.loginAction(form)
 
-  const register = async (form: RegisterForm) => {
-    await userStore.registerAction(form)
-    router.push({ name: 'TagSetup' })
-  }
+if (result.needsTagSetup) {
+router.push({ name: 'TagSetup' })
+return result
+}
 
-  const logout = () => {
-    userStore.logout()
-    router.push({ name: 'Login' })
-  }
+const redirect = router.currentRoute.value.query.redirect as string | undefined
+router.push(redirect || '/')
+return result
+}
 
-  return { login, register, logout, userStore }
+const register = async (form: RegisterForm) => {
+await userStore.registerAction(form)
+router.push({ name: 'Login' })
+}
+
+const logout = () => {
+userStore.logout()
+router.push({ name: 'Login' })
+}
+
+return { login, register, logout, userStore }
 }

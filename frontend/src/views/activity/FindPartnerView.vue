@@ -127,7 +127,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { Search } from '@element-plus/icons-vue'
 import UserCard from '@/components/discover/UserCard.vue'
-import { getRecommendations, getLeaderboard } from '@/api/dazi'
+import { getNearbyUsers, getLeaderboard } from '@/api/dazi'  // ✅ 改导入
 import { useUserStore } from '@/stores/user'
 import { formatDistance } from '@/utils/format'
 import type { NearbyUser } from '@/types/user'
@@ -183,11 +183,11 @@ const loadData = async () => {
   loading.value = true
   try {
     const [usersRes, lbRes] = await Promise.all([
-      getRecommendations({ radius: 10, pageSize: 30 }),
-      getLeaderboard('score'),
+      getNearbyUsers({ radius: 10, pageSize: 30 }),  // ✅ 改函数名
+      getLeaderboard(),  // ✅ 改为无参数
     ])
-    users.value       = usersRes as NearbyUser[]
-    leaderboard.value = lbRes   as (NearbyUser & { score: number })[]
+    users.value = usersRes as NearbyUser[]
+    leaderboard.value = lbRes as (NearbyUser & { score: number })[]
   } finally {
     loading.value = false
   }
