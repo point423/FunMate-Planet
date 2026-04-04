@@ -31,8 +31,10 @@ public class AuthInterceptor implements HandlerInterceptor {
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
         String uri = request.getRequestURI();
-        if (WHITE_LIST.contains(uri)) {
-            return true;
+
+        // 放行白名单
+        for (String path : WHITE_LIST) {
+            if (uri.startsWith(path)) return true;
         }
 
         String auth = request.getHeader("Authorization");
@@ -43,7 +45,8 @@ public class AuthInterceptor implements HandlerInterceptor {
 
         String token = auth.substring(7);
         try {
-            Long userId = jwtUtil.parseUserId(token);
+            // ✅ 修正方法名为 getUserIdFromToken
+            Long userId = jwtUtil.getUserIdFromToken(token);
             request.setAttribute("currentUserId", userId);
             return true;
         } catch (Exception e) {
