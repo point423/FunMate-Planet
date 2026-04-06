@@ -1,43 +1,10 @@
-// package com.zjgsu.pjt.backend.controller;
-
-// import com.zjgsu.pjt.backend.common.Result;
-// import org.springframework.web.bind.annotation.*;
-
-// import java.util.ArrayList;
-// import java.util.HashMap;
-// import java.util.List;
-// import java.util.Map;
-
-// @RestController
-// @RequestMapping("/api/chat")
-// @CrossOrigin(origins = "*")
-// public class ChatController {
-
-//     @GetMapping("/conversations")
-//     public Result<List<Map<String, Object>>> getConversations() {
-//         // 返回模拟会话列表
-//         List<Map<String, Object>> list = new ArrayList<>();
-//         Map<String, Object> conv = new HashMap<>();
-//         conv.put("lastMessage", "你好，很高兴认识你");
-//         conv.put("unreadCount", 0);
-//         list.add(conv);
-//         return Result.success(list);
-//     }
-
-//     @PostMapping("/messages")
-//     public Result<String> sendMessage(@RequestBody Map<String, Object> message) {
-//         return Result.success("消息发送成功");
-//     }
-// }
-
 package com.zjgsu.pjt.backend.controller;
 
 import com.zjgsu.pjt.backend.common.Result;
-import jakarta.servlet.http.HttpServletRequest;
+import com.zjgsu.pjt.backend.service.ChatService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -46,17 +13,15 @@ import java.util.Map;
 @CrossOrigin(origins = "*")
 public class ChatController {
 
-    @GetMapping("/conversations")
-    public Result<List<Map<String, Object>>> getConversations(HttpServletRequest request) {
-        Long currentUserId = (Long) request.getAttribute("currentUserId");
-        if (currentUserId == null) return Result.error(401, "未授权");
+    @Autowired
+    private ChatService chatService;
 
-        List<Map<String, Object>> list = new ArrayList<>();
-        Map<String, Object> conv = new HashMap<>();
-        conv.put("lastMessage", "你好，很高兴认识你");
-        conv.put("unreadCount", 0);
-        list.add(conv);
-        return Result.success(list);
+    @GetMapping("/conversations")
+    public Result<List<Map<String, Object>>> getConversations(@RequestAttribute(value = "currentUserId", required = false) Long currentUserId) {
+        if (currentUserId == null) {
+            return Result.error(401, "未授权");
+        }
+        return Result.success(chatService.getConversations(currentUserId));
     }
 
     @GetMapping("/messages")
@@ -64,36 +29,32 @@ public class ChatController {
             @RequestParam Long targetUserId,
             @RequestParam(defaultValue = "1") int pageNum,
             @RequestParam(defaultValue = "50") int pageSize,
-            HttpServletRequest request) {
+            @RequestAttribute(value = "currentUserId", required = false) Long currentUserId) {
 
-        Long currentUserId = (Long) request.getAttribute("currentUserId");
-        if (currentUserId == null) return Result.error(401, "未授权");
+        if (currentUserId == null) {
+            return Result.error(401, "未授权");
+        }
 
-        Map<String, Object> data = new HashMap<>();
-        data.put("total", 0);
-        data.put("list", new ArrayList<>());
-        data.put("targetUserId", targetUserId);
-        data.put("pageNum", pageNum);
-        data.put("pageSize", pageSize);
-        return Result.success(data);
+        return Result.success(chatService.getMessages(currentUserId, targetUserId, pageNum, pageSize));
     }
 
     @PostMapping("/messages")
     public Result<String> sendMessage(@RequestBody Map<String, Object> message,
-                                      HttpServletRequest request) {
-        Long currentUserId = (Long) request.getAttribute("currentUserId");
-        if (currentUserId == null) return Result.error(401, "未授权");
+                                      @RequestAttribute(value = "currentUserId", required = false) Long currentUserId) {
+        if (currentUserId == null) {
+            return Result.error(401, "未授权");
+        }
 
         Long receiverId = Long.valueOf(message.get("receiverId").toString());
         String content = message.get("content").toString();
 
-        // 可选：这里可以实际保存消息，现在先 mock
-        // ChatMessage msg = new ChatMessage();
-        // msg.setSenderId(currentUserId);
-        // msg.setReceiverId(receiverId);
-        // msg.setContent(content);
-        // chatMessageRepository.save(msg);
+        String result = chatService.sendMessage(currentUserId, receiverId, content);
+        return Result.created(result);
+    }
 
-        return Result.created("消息发送成功");
+    @DeleteMapping("/messages/{messageId}")
+    public Result<String> deleteMessage(@PathVariable String messageId) {
+        boolean success = chatService.deleteMessage(messageId);
+        return success ? Result.success("消息已删除") : Result.error(404, "消息不存在");
     }
 }

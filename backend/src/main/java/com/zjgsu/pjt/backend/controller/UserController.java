@@ -2,13 +2,11 @@ package com.zjgsu.pjt.backend.controller;
 
 import com.zjgsu.pjt.backend.common.Result;
 import com.zjgsu.pjt.backend.entity.User;
-import com.zjgsu.pjt.backend.repository.UserRepository;
-import jakarta.servlet.http.HttpServletRequest;
+import com.zjgsu.pjt.backend.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.geo.Point;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -17,65 +15,59 @@ import java.util.Map;
 public class UserController {
 
     @Autowired
-    private UserRepository userRepository;
+    private UserService userService;
 
-    @Autowired
-    private StringRedisTemplate stringRedisTemplate;
-
-    private static final String GEO_KEY = "user:location";
+    @GetMapping
+    public Result<List<User>> getUsers() {
+        return Result.success(userService.getAllUsers());
+    }
 
     @GetMapping("/me")
-    public Result<User> getMe(HttpServletRequest request) {
-        Long currentUserId = (Long) request.getAttribute("currentUserId");
+    public Result<User> getMe(@RequestAttribute(value = "currentUserId", required = false) Long currentUserId) {
         if (currentUserId == null) return Result.error(401, "未授权");
 
-        return userRepository.findById(currentUserId)
-                .map(Result::success)
-                .orElse(Result.error(404, "用户不存在"));
+        User user = userService.findById(currentUserId);
+        return user != null ? Result.success(user) : Result.error(404, "用户不存在");
     }
 
     @PutMapping("/me")
-    public Result<User> updateMe(HttpServletRequest request, @RequestBody User profile) {
-        Long currentUserId = (Long) request.getAttribute("currentUserId");
+    public Result<User> updateMe(@RequestAttribute(value = "currentUserId", required = false) Long currentUserId,
+                                 @RequestBody User profile) {
         if (currentUserId == null) return Result.error(401, "未授权");
 
-        User user = userRepository.findById(currentUserId).orElse(null);
-        if (user == null) return Result.error(404, "用户不存在");
-
-        if (profile.getNickname() != null) user.setNickname(profile.getNickname());
-        if (profile.getAvatar() != null) user.setAvatar(profile.getAvatar());
-        if (profile.getTags() != null) user.setTags(profile.getTags());
-        if (profile.getAge() != null) user.setAge(profile.getAge());
-        if (profile.getGender() != null) user.setGender(profile.getGender());
-
-        return Result.success(userRepository.save(user));
+        User updated = userService.updateProfile(currentUserId, profile);
+        return updated != null ? Result.success(updated) : Result.error(404, "用户不存在");
     }
 
     @GetMapping("/{id}")
     public Result<User> getUserById(@PathVariable Long id) {
-        return userRepository.findById(id)
-                .map(Result::success)
-                .orElse(Result.error(404, "用户不存在"));
+        User user = userService.findById(id);
+        return user != null ? Result.success(user) : Result.error(404, "用户不存在");
+    }
+
+    @PutMapping("/{id}")
+    public Result<User> updateUser(@PathVariable Long id, @RequestBody User user) {
+        User updated = userService.updateUser(id, user);
+        return updated != null ? Result.success(updated) : Result.error(404, "用户不存在");
+    }
+
+    @DeleteMapping("/{id}")
+    public Result<String> deleteUser(@PathVariable Long id) {
+        boolean success = userService.deleteUser(id);
+        return success ? Result.success("用户删除成功") : Result.error(404, "用户不存在");
     }
 
     @PostMapping("/location")
-    public Result<String> updateLocation(HttpServletRequest request, @RequestBody Map<String, Object> params) {
-        Long currentUserId = (Long) request.getAttribute("currentUserId");
+    public Result<String> updateLocation(@RequestAttribute(value = "currentUserId", required = false) Long currentUserId,
+                                         @RequestBody Map<String, Object> params) {
         if (currentUserId == null) return Result.error(401, "未授权");
 
         try {
             Double longitude = Double.valueOf(params.get("longitude").toString());
             Double latitude = Double.valueOf(params.get("latitude").toString());
 
-            User user = userRepository.findById(currentUserId).orElse(null);
-            if (user != null) {
-                user.setLongitude(longitude);
-                user.setLatitude(latitude);
-                userRepository.save(user);
-                stringRedisTemplate.opsForGeo().add(GEO_KEY, new Point(longitude, latitude), currentUserId.toString());
-                return Result.success("位置上报成功");
-            }
-            return Result.error(404, "用户不存在");
+            userService.updateLocation(currentUserId, longitude, latitude);
+            return Result.success("位置上报成功");
         } catch (Exception e) {
             return Result.error(400, "参数解析失败");
         }

@@ -9,12 +9,22 @@ services:
       - "3306:3306"
     volumes:
       - ./mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p1234567"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   redis:
     image: redis:latest
     container_name: fm-redis
     ports:
       - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
 
   backend:
     build: ./backend
@@ -22,12 +32,13 @@ services:
     ports:
       - "8080:8080"
     depends_on:
-      - mysql
-      - redis
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     volumes:
-      - ./uploads:/app/uploads  # ✅ 这一行：将容器内的 uploads 映射到 Linux
+      - ./uploads:/app/uploads
     environment:
-      # 这里定义的环境变量会被 application.yml 中的 ${} 语法读取
       DB_HOST: mysql
       DB_PASSWORD: 1234567
       REDIS_HOST: redis
