@@ -1,4 +1,4 @@
-package com.zjgsu.pjt.backend.comfig;
+package com.zjgsu.pjt.backend.config;
 
 import com.zjgsu.pjt.backend.common.Result;
 import com.zjgsu.pjt.backend.util.JwtUtil;
@@ -19,9 +19,8 @@ public class AuthInterceptor implements HandlerInterceptor {
     private static final Set<String> WHITE_LIST = Set.of(
             "/api/auth/login",
             "/api/auth/register",
-            "/api/test/connection/db",
-            "/api/test/connection/redis",
-            "/api/test/connection/all"
+            "/api/test/connection",
+            "/api/upload/static"
     );
 
     public AuthInterceptor(JwtUtil jwtUtil) {
@@ -31,21 +30,20 @@ public class AuthInterceptor implements HandlerInterceptor {
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
         String uri = request.getRequestURI();
-
-        // 放行白名单
+        
+        // 白名单放行
         for (String path : WHITE_LIST) {
             if (uri.startsWith(path)) return true;
         }
 
         String auth = request.getHeader("Authorization");
         if (auth == null || !auth.startsWith("Bearer ")) {
-            write401(response, "未登录或缺少Token");
+            write401(response, "未登录或令牌缺失");
             return false;
         }
 
         String token = auth.substring(7);
         try {
-            // ✅ 修正方法名为 getUserIdFromToken
             Long userId = jwtUtil.getUserIdFromToken(token);
             request.setAttribute("currentUserId", userId);
             return true;
