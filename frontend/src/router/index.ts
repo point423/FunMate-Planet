@@ -80,6 +80,14 @@ const router = createRouter({
       meta: { requiresAuth: true },
     },
 
+    // ── AI Assistant ──────────────────────────
+    {
+      path: '/ai-assistant',
+      name: 'AiAssistant',
+      component: () => import('@/views/ai/AiAssistantView.vue'),
+      meta: { requiresAuth: true },
+    },
+
     // ── Fallback ──────────────────────────────
     { path: '/:pathMatch(.*)*', redirect: '/' },
   ],

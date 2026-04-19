@@ -163,6 +163,7 @@ const navItems = [
   { name: "Home", label: "Home", path: "/" },
   { name: "Chat", label: "Chat", path: "/chat" },
   { name: "Activity", label: "Activity", path: "/activity" },
+  { name: "AiAssistant", label: "AI助手", path: "/ai-assistant" },
 ];
 
 const isChildActive = (item: { name: string; path: string }) =>

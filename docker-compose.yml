@@ -26,6 +26,15 @@ services:
       timeout: 3s
       retries: 5
 
+  ollama:
+    image: ollama/ollama:latest
+    container_name: fm-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    command: serve
+
   backend:
     build: ./backend
     container_name: fm-backend
@@ -36,9 +45,25 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      ollama:
+        condition: service_started
     volumes:
       - ./uploads:/app/uploads
     environment:
       DB_HOST: mysql
       DB_PASSWORD: 1234567
       REDIS_HOST: redis
+      AI_API_KEY: ollama
+      AI_BASE_URL: http://ollama:11434/v1
+      AI_MODEL: qwen2.5:1.5b
+
+  frontend:
+    build: ./frontend
+    container_name: fm-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+
+volumes:
+  ollama_data:
