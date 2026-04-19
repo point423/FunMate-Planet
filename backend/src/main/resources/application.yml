@@ -19,7 +19,7 @@ spring:
       hibernate:
         format_sql: true  # 格式化 SQL
     open-in-view: false   # 关闭 OSIV，推荐设置
-    
+
   # Redis 配置
   data:
     redis:
@@ -29,9 +29,15 @@ spring:
       database: 0
       timeout: 3000ms
 jwt:
-  secret: 0123456789abcdef0123456789abcdef
+  secret: FunMatePlanetSecretKeyForJwtTokenGeneration2024
   expire-seconds: 86400
 # 文件上传配置
 upload:
   dir: uploads/
   url: http://localhost:8080/static/
+
+ai:
+  api-key: ${AI_API_KEY:ollama}
+  base-url: ${AI_BASE_URL:http://ollama:11434/v1}
+  model: ${AI_MODEL:qwen2.5:1.5b}
+

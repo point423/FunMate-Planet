@@ -17,6 +17,11 @@ export function useLocation() {
       async (pos) => {
         lat.value = pos.coords.latitude
         lng.value = pos.coords.longitude
+
+        // 保存到 localStorage，供其他 API 使用
+        localStorage.setItem('user_latitude', lat.value.toString())
+        localStorage.setItem('user_longitude', lng.value.toString())
+
         await reportLocation({ latitude: lat.value, longitude: lng.value })
       },
       (err) => { error.value = err.message },

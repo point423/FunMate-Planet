@@ -21,6 +21,8 @@ backend/target/
 mysql_data/
 hs_err_pid*
 replay_pid*
+.env
+
 
 # --- IDE & 编辑器规则 ---
 .idea/

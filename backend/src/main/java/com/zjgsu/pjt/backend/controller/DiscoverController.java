@@ -17,16 +17,21 @@ public class DiscoverController {
     private DiscoverService discoverService;
 
     @GetMapping("/nearby")
-    public Result<List<User>> getNearby(@RequestParam Double longitude,
-                                        @RequestParam Double latitude,
+    public Result<List<User>> getNearby(@RequestParam(required = false) Double longitude,
+                                        @RequestParam(required = false) Double latitude,
                                         @RequestParam(defaultValue = "10") Double radius) {
         try {
+            if (longitude == null || latitude == null) {
+                return Result.success(List.of());
+            }
             List<User> users = discoverService.getNearbyUsers(longitude, latitude, radius);
             return Result.success(users);
         } catch (Exception e) {
             return Result.error(500, "搜索失败: " + e.getMessage());
         }
     }
+// ... existing code ...
+
 
     @GetMapping("/ranking")
     public Result<List<User>> getRanking(@RequestParam(defaultValue = "10") int limit) {
