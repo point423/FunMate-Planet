@@ -494,7 +494,13 @@ onMounted(() => { loadPartners(); loadApplications() })
 }
 .msg-row { display: flex; align-items: flex-end; gap: 10px; max-width: 72%; }
 .msg-row.them { align-self: flex-start; }
-.msg-row.me   { align-self: flex-end; flex-direction: row-reverse; }
+.msg-row.me   { 
+  align-self: flex-end; 
+  /* flex-direction: row-reverse; */
+}
+.msg-row.me .msg-avatar {
+  border: 1px solid var(--color-green-border);
+}
 .msg-avatar { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
 .msg-bubble {
   padding: 11px 15px; border-radius: 18px; font-size: 14px; line-height: 1.55;
