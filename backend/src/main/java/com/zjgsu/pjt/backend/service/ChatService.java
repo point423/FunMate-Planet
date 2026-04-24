@@ -9,24 +9,33 @@ import java.util.stream.Collectors;
 @Service
 public class ChatService {
 
-    private static final Map<Long, List<Map<String, Object>>> messageStore = new ConcurrentHashMap<>();
+    private final Map<Long, List<Map<String, Object>>> messageStore = new ConcurrentHashMap<>();
 
     public List<Map<String, Object>> getConversations(Long userId) {
         List<Map<String, Object>> conversations = new ArrayList<>();
 
-        messageStore.forEach((targetUserId, messages) -> {
-            if (!messages.isEmpty()) {
-                Map<String, Object> lastMsg = messages.get(messages.size() - 1);
-                if (Objects.equals(lastMsg.get("senderId"), userId) ||
-                    Objects.equals(lastMsg.get("receiverId"), userId)) {
+        messageStore.forEach((storeKey, messages) -> {
+            // 只有当 storeKey 是当前用户时，才去提取对应的聊天对象
+            if (Objects.equals(storeKey, userId) && !messages.isEmpty()) {
+                // 这里的逻辑需要根据消息记录提取所有不同的联系人
+                Map<Long, Map<String, Object>> latestMessages = new HashMap<>();
 
+                for (Map<String, Object> msg : messages) {
+                    Long senderId = (Long) msg.get("senderId");
+                    Long receiverId = (Long) msg.get("receiverId");
+                    Long targetId = Objects.equals(senderId, userId) ? receiverId : senderId;
+
+                    latestMessages.put(targetId, msg);
+                }
+
+                latestMessages.forEach((targetId, lastMsg) -> {
                     Map<String, Object> conv = new HashMap<>();
-                    conv.put("userId", targetUserId);
+                    conv.put("userId", targetId);
                     conv.put("lastMessage", lastMsg.get("content"));
                     conv.put("lastMessageTime", lastMsg.get("createTime"));
                     conv.put("unreadCount", 0);
                     conversations.add(conv);
-                }
+                });
             }
         });
 
@@ -34,14 +43,14 @@ public class ChatService {
     }
 
     public Map<String, Object> getMessages(Long currentUserId, Long targetUserId, int pageNum, int pageSize) {
-        List<Map<String, Object>> allMessages = messageStore.getOrDefault(targetUserId, new ArrayList<>());
+        List<Map<String, Object>> allMessages = messageStore.getOrDefault(currentUserId, new ArrayList<>());
 
         List<Map<String, Object>> filteredMessages = allMessages.stream()
                 .filter(msg ->
-                    (Objects.equals(msg.get("senderId"), currentUserId) &&
-                     Objects.equals(msg.get("receiverId"), targetUserId)) ||
-                    (Objects.equals(msg.get("senderId"), targetUserId) &&
-                     Objects.equals(msg.get("receiverId"), currentUserId)))
+                        (Objects.equals(msg.get("senderId"), currentUserId) &&
+                                Objects.equals(msg.get("receiverId"), targetUserId)) ||
+                                (Objects.equals(msg.get("senderId"), targetUserId) &&
+                                        Objects.equals(msg.get("receiverId"), currentUserId)))
                 .sorted((m1, m2) -> ((LocalDateTime) m2.get("createTime")).compareTo((LocalDateTime) m1.get("createTime")))
                 .collect(Collectors.toList());
 
@@ -50,8 +59,8 @@ public class ChatService {
         int toIndex = Math.max(0, total - (pageNum - 1) * pageSize);
 
         List<Map<String, Object>> pageMessages = filteredMessages.subList(
-                Math.min(fromIndex, toIndex),
-                Math.max(fromIndex, toIndex)
+                Math.min(fromIndex, total),
+                Math.min(toIndex, total)
         );
 
         Map<String, Object> result = new HashMap<>();
