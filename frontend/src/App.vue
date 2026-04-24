@@ -84,4 +84,10 @@ onUnmounted(() => {
   z-index: 0;
   pointer-events: none;
 }
+html {
+  color-scheme: dark;
+  --el-bg-color: #0a0a0a;
+  --el-text-color-primary: #ffffff;
+  --el-dialog-bg-color: #0a0a0a;
+}
 </style>
