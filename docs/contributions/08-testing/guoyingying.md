@@ -254,7 +254,7 @@ it('当前路由为伙伴时伙伴导航项应为活跃', () => {
 
 ## 七、PR 链接
 
-https://github.com/point423/FunMate-Planet.git
+[https://github.com/point423/FunMate-Planet.git](https://github.com/point423/FunMate-Planet/pull/16)
 
 ---
 
