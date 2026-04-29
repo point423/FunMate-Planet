@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/point423/FunMate-Planet/actions/workflows/ci.yml/badge.svg)](https://github.com/point423/FunMate-Planet/actions)
 [![Backend Service Coverage](https://img.shields.io/badge/Service%20Coverage-62%25-green.svg)](https://github.com/point423/FunMate-Planet)
-[![Frontend Coverage](https://img.shields.io/badge/Frontend%20Coverage-Pending-lightgrey.svg)](https://github.com/point423/FunMate-Planet)
+[![Frontend Coverage](https://img.shields.io/badge/Frontend%20Coverage-64%25-green.svg)](https://github.com/point423/FunMate-Planet)
 
 ## 团队成员
 | 姓名 | 学号 | 分工 |
