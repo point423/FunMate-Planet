@@ -1,7 +1,10 @@
 # 趣搭星球（FunMate Planet）
 
+[![CI](https://github.com/point423/FunMate-Planet/actions/workflows/ci.yml/badge.svg)](https://github.com/point423/FunMate-Planet/actions)
 [![Backend Service Coverage](https://img.shields.io/badge/Service%20Coverage-62%25-green.svg)](https://github.com/point423/FunMate-Planet)
+[![Frontend Coverage](https://img.shields.io/badge/Frontend%20Coverage-Pending-lightgrey.svg)](https://github.com/point423/FunMate-Planet)
 
+## 团队成员
 | 姓名 | 学号 | 分工 |
 |------|------|------|
 | 郭盈盈 | 2312190102 | 前端开发、UI 交互设计 |
@@ -18,10 +21,11 @@
 - **评价体系**：活动后用户互评，系统自动计算并更新**好评排行榜**。
 - **活动日记**：支持多图展示的线下活动回忆墙。
 
-## 质量保障（软件测试）
-本项目建立了完善的自动化测试体系：
+## 质量保障（CI/CD & 自动化测试）
+本项目建立了完善的持续集成与测试体系：
+- **CI 流水线**：基于 GitHub Actions 实现，代码提交后自动触发编译、单元测试及覆盖率统计。
 - **后端测试**：基于 JUnit 5 + Mockito 实现，涵盖 55 个核心测试用例。
-- **覆盖率**：核心 Service 模块覆盖率 > 80%，整体项目覆盖率 > 60%。
+- **覆盖率**：核心 Service 模块指令覆盖率已达 62%。
 
 ## 运行与测试指南
 
