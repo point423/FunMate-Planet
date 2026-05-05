@@ -63,12 +63,12 @@ jobs:
       - name: Test with Coverage
         run: |
           if [ -d "frontend" ]; then
-            npm test --prefix frontend -- --coverage --ci || echo "Frontend tests skipped"
+            npm test --prefix frontend || echo "Frontend tests skipped"
           fi
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          files: frontend/coverage/lcov.info
+          files: ./frontend/coverage/coverage-final.json
           flags: frontend

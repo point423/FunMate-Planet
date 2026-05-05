@@ -1,17 +1,18 @@
 // src/api/dazi.ts
 import request from './index'
-import type { NearbyUser } from '@/types/user'
 
-export const getNearbyUsers = (params?: {
+interface NearbyUsersParams {
   radius?: number
   tags?: string
   pageNum?: number
   pageSize?: number
   longitude?: number
   latitude?: number
-}) => {
+}
+
+export const getNearbyUsers = (params?: NearbyUsersParams) => {
   // 如果没有提供经纬度，尝试从 localStorage 获取
-  const defaultParams: any = {
+  const defaultParams: NearbyUsersParams = {
     radius: params?.radius || 10,
     pageSize: params?.pageSize || 6,
   }
