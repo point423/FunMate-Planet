@@ -1,15 +1,6 @@
 # CI/CD 配置贡献说明
 
-## 基本信息
-| 项目 | 内容 |
-|------|------|
-| 姓名 | ___________（待填写） |
-| 学号 | ___________（待填写） |
-| 角色 | 前端 |
-| GitHub 用户名 | Gyy0x8 |
-| 日期 | 2026-05-05 |
-
----
+姓名：郭盈盈  学号：2312190102  角色：前端  日期：2026-05-05
 
 ## 完成的工作
 
@@ -51,60 +42,17 @@
 
 ---
 
-## 提交内容
-
-### GitHub 提交
-- `.github/workflows/ci.yml` - CI 工作流文件（通过 PR 合并）
-- `README.md` - 更新 CI 及覆盖率状态徽章
-- `frontend/package.json` - 更新 test 和 lint 脚本
-- `frontend/.eslintrc.cjs` - ESLint 配置文件
-- `frontend/.eslintignore` - ESLint 忽略规则
-- 各测试文件修复 - 恢复缺失的导入
-
-### 本地验证结果
-```bash
-# ESLint 检查
-$ npm run lint --prefix frontend
-✓ 0 errors, 0 warnings (passed)
-
-# 单元测试
-$ npm test --prefix frontend
-✓ Test Files: 12 passed (12)
-✓ Tests: 75 passed (75)
-✓ Coverage: 23.86% (Statements)
-```
-
----
-
 ## PR 链接
 - **前端配置 PR**: https://github.com/point423/FunMate-Planet/pulls?q=is%3Apr+author%3AGyy0x8 （待填写具体 PR #_____ ）
 - **工作流 PR**: https://github.com/point423/FunMate-Planet/pulls?q=is%3Apr+author%3AGyy0x8 （待填写具体 PR #_____ ）
 
 ---
 
-## CI 运行情况
-
-### 工作流状态
-- ✅ **Frontend Job**: 通过
-  - Setup Node.js 20 ✓
-  - Install dependencies ✓
-  - ESLint 检查 ✓
-  - 运行测试和覆盖率 ✓
-  - 上传 Codecov ✓
-
-- ⏳ **Backend Job**: 等待后端成员配置
-  - Setup JDK 21
-  - Maven 编译和测试
-  - Jacoco 覆盖率报告
-  - 上传 Codecov
+## CI 运行链接
 
 ### Actions 链接
 - **GitHub Actions**: https://github.com/point423/FunMate-Planet/actions
 - **Codecov 仪表板**: https://codecov.io/gh/point423/FunMate-Planet
-
-### 贡献者信息
-- **前端配置**: Gyy0x8
-- **后端配置**: point423
 
 ---
 
@@ -167,13 +115,3 @@ YOUR TYPESCRIPT VERSION: 5.9.3
    - 前后端并行测试大幅提高了反馈效率
 
 **建议**: 后续可以考虑在 CI 中添加性能测试、安全扫描等更高级的检查。
-
----
-
-## 环境信息
-- Node.js: 20
-- npm: 10.x
-- TypeScript: 5.5.4
-- Vitest: 1.6.1
-- ESLint: 8.57.0
-- 操作系统: Ubuntu (CI环境)
