@@ -3,7 +3,7 @@ name: CI
 on:
   push:
     # ✅ 修改点：增加了对 feature 分支的支持，这样你 push 后就能立刻看到运行状态
-    branches: [ main, develop, 'feature-*' ]
+    branches: [ main, develop, 'feature-*', 'feature/*' ]
   pull_request:
     branches: [ main, develop ]
 
