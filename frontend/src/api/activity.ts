@@ -40,12 +40,12 @@ import type { ActivityForm } from '@/types/activity'
 export const createActivity = (data: ActivityForm) =>
   request.post('/activities', data)
 
-export const getActivityDetail = (id: number) =>
-  request.get(`/activities/${id}`)
+export const getActivityDetail = (_id: number) =>
+  request.get(`/activities/${_id}`)
 
 // ✅ 改路径：/activities/{id}/end 而非 /activities/{id}/complete
 export const endActivity = (id: number) =>
-  request.post(`/activities/{id}/end`, {})
+  request.post(`/activities/${id}/end`, {})
 
 // 向后兼容
 export const completeActivity = endActivity

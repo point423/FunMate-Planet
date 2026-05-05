@@ -3,7 +3,7 @@ name: CI
 on:
   push:
     # ✅ 修改点：增加了对 feature 分支的支持，这样你 push 后就能立刻看到运行状态
-    branches: [ main, develop, 'feature-*' ]
+    branches: [ main, develop, 'feature-*', 'feature/*' ]
   pull_request:
     branches: [ main, develop ]
 
@@ -63,12 +63,12 @@ jobs:
       - name: Test with Coverage
         run: |
           if [ -d "frontend" ]; then
-            npm test --prefix frontend -- --coverage --ci || echo "Frontend tests skipped"
+            npm test --prefix frontend || echo "Frontend tests skipped"
           fi
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          files: frontend/coverage/lcov.info
+          files: ./frontend/coverage/coverage-final.json
           flags: frontend

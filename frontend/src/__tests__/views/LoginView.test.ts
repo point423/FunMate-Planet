@@ -1,6 +1,5 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount } from '@vue/test-utils'
-import { nextTick } from 'vue'
 import LoginView from '@/views/auth/LoginView.vue'
 import * as VueRouter from 'vue-router'
 import { ElMessage } from 'element-plus'
