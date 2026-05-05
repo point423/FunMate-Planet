@@ -43,16 +43,14 @@
 ---
 
 ## PR 链接
-- **前端配置 PR**: https://github.com/point423/FunMate-Planet/pulls?q=is%3Apr+author%3AGyy0x8 （待填写具体 PR #_____ ）
-- **工作流 PR**: https://github.com/point423/FunMate-Planet/pulls?q=is%3Apr+author%3AGyy0x8 （待填写具体 PR #_____ ）
+
+https://github.com/point423/FunMate-Planet/pull/18
 
 ---
 
 ## CI 运行链接
 
-### Actions 链接
-- **GitHub Actions**: https://github.com/point423/FunMate-Planet/actions
-- **Codecov 仪表板**: https://codecov.io/gh/point423/FunMate-Planet
+https://github.com/point423/FunMate-Planet/actions
 
 ---
 
