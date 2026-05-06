@@ -39,16 +39,30 @@ public class ActivityController {
         return activity != null ? Result.success(activity) : Result.error(404, "活动不存在");
     }
 
+    /**
+     * 安全修复：防止水平越权 (IDOR)
+     * 只有活动发起人可以修改活动信息
+     */
     @PutMapping("/{id}")
-    public Result<Activity> update(@PathVariable Long id, @RequestBody Activity activity) {
-        Activity updated = activityService.updateActivity(id, activity);
-        return updated != null ? Result.success(updated) : Result.error(404, "活动不存在");
+    public Result<Activity> update(@PathVariable Long id, 
+                                   @RequestBody Activity activity,
+                                   @RequestAttribute("currentUserId") Long currentUserId) {
+        Activity updated = activityService.updateActivity(id, activity, currentUserId);
+        if (updated == null) {
+            return Result.error(403, "无权修改此活动或活动不存在");
+        }
+        return Result.success(updated);
     }
 
+    /**
+     * 安全修复：防止水平越权 (IDOR)
+     * 只有活动发起人可以删除活动
+     */
     @DeleteMapping("/{id}")
-    public Result<String> delete(@PathVariable Long id) {
-        boolean success = activityService.deleteActivity(id);
-        return success ? Result.success("活动已删除") : Result.error(404, "活动不存在");
+    public Result<String> delete(@PathVariable Long id,
+                                 @RequestAttribute("currentUserId") Long currentUserId) {
+        boolean success = activityService.deleteActivity(id, currentUserId);
+        return success ? Result.success("活动已删除") : Result.error(403, "无权删除此活动或活动不存在");
     }
 
     @PostMapping("/{id}/join")

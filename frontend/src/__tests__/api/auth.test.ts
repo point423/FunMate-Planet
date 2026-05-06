@@ -74,7 +74,7 @@ describe('API - auth.ts', () => {
       const mockResponse = { id: 1, username: 'newuser' }
       vi.mocked(request.post).mockResolvedValue(mockResponse)
       
-      await authApi.register({
+      const result = await authApi.register({
         username: 'newuser',
         password: 'password123',
         nickname: 'New User',

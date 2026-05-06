@@ -8,13 +8,15 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 
 import java.util.Collections;
-import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -40,9 +42,14 @@ public class DiaryServiceTest {
     @Test
     @DisplayName("测试根据用户查询日记")
     void getDiaries_ByUser() {
-        when(diaryRepository.findByUserId(1L)).thenReturn(Collections.singletonList(new ActivityDiary()));
-        List<ActivityDiary> result = diaryService.getDiaries(1L);
-        assertEquals(1, result.size());
+        PageRequest pageable = PageRequest.of(0, 10);
+        Page<ActivityDiary> page = new PageImpl<>(Collections.singletonList(new ActivityDiary()));
+        when(diaryRepository.findByUserId(eq(1L), any())).thenReturn(page);
+
+        // ✅ 修复：传入 Pageable 参数
+        Page<ActivityDiary> result = diaryService.getDiaries(1L, pageable);
+        assertNotNull(result);
+        assertEquals(1, result.getContent().size());
     }
 
     @Test
@@ -50,6 +57,7 @@ public class DiaryServiceTest {
     void updateDiary_Success() {
         ActivityDiary existing = new ActivityDiary();
         existing.setId(1L);
+        existing.setUserId(1L);
         existing.setContent("旧内容");
 
         ActivityDiary updateInfo = new ActivityDiary();
@@ -58,7 +66,8 @@ public class DiaryServiceTest {
         when(diaryRepository.findById(1L)).thenReturn(Optional.of(existing));
         when(diaryRepository.save(any())).thenReturn(existing);
 
-        ActivityDiary result = diaryService.updateDiary(1L, updateInfo);
+        // ✅ 修复：传入 currentUserId 参数 (1L)
+        ActivityDiary result = diaryService.updateDiary(1L, updateInfo, 1L);
         assertEquals("新内容", result.getContent());
     }
 }

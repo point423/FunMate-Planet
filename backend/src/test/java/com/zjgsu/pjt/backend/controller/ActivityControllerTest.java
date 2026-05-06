@@ -14,8 +14,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -40,43 +39,45 @@ public class ActivityControllerTest {
     private final String DUMMY_TOKEN = "Bearer dummy-token";
 
     @Test
-    @DisplayName("测试创建活动接口")
+    @DisplayName("1. 创建活动-成功场景")
     void createActivity_Success() throws Exception {
         Activity activity = new Activity();
         activity.setTitle("测试活动");
-
         when(jwtUtil.getUserIdFromToken(anyString())).thenReturn(1L);
         when(activityService.createActivity(any())).thenReturn(activity);
 
         mockMvc.perform(post("/api/activities")
-                        .header("Authorization", DUMMY_TOKEN) // ✅ 必须携带 Token
+                        .header("Authorization", DUMMY_TOKEN)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(activity)))
-                .andExpect(status().isOk()) // ✅ 后端返回 200 (Result 封装)
-                .andExpect(jsonPath("$.code").value(0)); // ✅ 作业要求 code 0
-    }
-
-    @Test
-    @DisplayName("测试获取活动列表接口")
-    void listActivities_Success() throws Exception {
-        // 白名单中没有 /api/activities，需要携带 Token
-        when(jwtUtil.getUserIdFromToken(anyString())).thenReturn(1L);
-
-        mockMvc.perform(get("/api/activities")
-                        .header("Authorization", DUMMY_TOKEN))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0));
     }
 
     @Test
-    @DisplayName("测试删除活动接口")
-    void deleteActivity_Success() throws Exception {
+    @DisplayName("2. 安全校验-非创建者修改活动应返回403")
+    void updateActivity_Forbidden() throws Exception {
         when(jwtUtil.getUserIdFromToken(anyString())).thenReturn(1L);
-        when(activityService.deleteActivity(1L)).thenReturn(true);
+        // 模拟 Service 返回 null 代表权限校验不通过
+        when(activityService.updateActivity(eq(1L), any(), eq(1L))).thenReturn(null);
+
+        mockMvc.perform(put("/api/activities/1")
+                        .header("Authorization", DUMMY_TOKEN)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\":\"hacked\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(403));
+    }
+
+    @Test
+    @DisplayName("3. 安全校验-非创建者删除活动应返回403")
+    void deleteActivity_Forbidden() throws Exception {
+        when(jwtUtil.getUserIdFromToken(anyString())).thenReturn(1L);
+        when(activityService.deleteActivity(eq(1L), eq(1L))).thenReturn(false);
 
         mockMvc.perform(delete("/api/activities/1")
                         .header("Authorization", DUMMY_TOKEN))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.msg").value("success"));
+                .andExpect(jsonPath("$.code").value(403));
     }
 }

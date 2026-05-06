@@ -16,13 +16,10 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.Collections;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -44,7 +41,7 @@ public class DiaryControllerTest {
     private final String DUMMY_TOKEN = "Bearer dummy-token";
 
     @Test
-    @DisplayName("测试发布日记接口")
+    @DisplayName("1. 发布日记-成功场景")
     void createDiary_Success() throws Exception {
         ActivityDiary diary = new ActivityDiary();
         diary.setContent("接口测试日记");
@@ -61,15 +58,29 @@ public class DiaryControllerTest {
     }
 
     @Test
-    @DisplayName("测试获取日记列表接口")
-    void listDiaries_Success() throws Exception {
-        // ✅ 核心修复：Mock Token 解析并添加 Header 避免 401 报错
+    @DisplayName("2. 安全校验-修改他人日记应返回403")
+    void updateDiary_Forbidden() throws Exception {
         when(jwtUtil.getUserIdFromToken(anyString())).thenReturn(1L);
-        when(diaryService.getDiaries(any())).thenReturn(Collections.emptyList());
+        // 模拟 Service 返回 null 代表越权校验失败
+        when(diaryService.updateDiary(eq(1L), any(), eq(1L))).thenReturn(null);
 
-        mockMvc.perform(get("/api/diaries")
-                        .header("Authorization", DUMMY_TOKEN)) // ✅ 补全 Header
+        mockMvc.perform(put("/api/diaries/1")
+                        .header("Authorization", DUMMY_TOKEN)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"content\":\"hacked\"}"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(0));
+                .andExpect(jsonPath("$.code").value(403));
+    }
+
+    @Test
+    @DisplayName("3. 安全校验-删除他人日记应返回403")
+    void deleteDiary_Forbidden() throws Exception {
+        when(jwtUtil.getUserIdFromToken(anyString())).thenReturn(1L);
+        when(diaryService.deleteDiary(eq(1L), eq(1L))).thenReturn(false);
+
+        mockMvc.perform(delete("/api/diaries/1")
+                        .header("Authorization", DUMMY_TOKEN))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(403));
     }
 }

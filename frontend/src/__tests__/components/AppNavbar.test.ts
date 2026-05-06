@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount } from '@vue/test-utils'
+import { ref } from 'vue'
 import AppNavbar from '@/components/common/AppNavbar.vue'
 import * as VueRouter from 'vue-router'
 

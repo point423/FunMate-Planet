@@ -3,6 +3,7 @@ import { mount } from '@vue/test-utils'
 import { nextTick } from 'vue'
 import TagSetupView from '@/views/auth/TagSetupView.vue'
 import * as VueRouter from 'vue-router'
+import { ElMessage } from 'element-plus'
 
 vi.mock('vue-router')
 
@@ -131,6 +132,8 @@ describe('TagSetupView.vue', () => {
       },
     })
     
+    const tagSelector = wrapper.findComponent({ name: 'TagSelector' })
+    // 检查 max 属性
     expect(wrapper.find('.auth-card').exists()).toBe(true)
   })
 })

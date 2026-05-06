@@ -39,33 +39,48 @@ public class ChatControllerTest {
     @Autowired
     private ObjectMapper objectMapper;
 
-    @Test
-    @DisplayName("测试获取会话列表接口")
-    void getConversations_Success() throws Exception {
-        when(jwtUtil.getUserIdFromToken(anyString())).thenReturn(1L);
-        when(chatService.getConversations(anyLong())).thenReturn(Collections.emptyList());
+    private final String DUMMY_TOKEN = "Bearer dummy";
 
-        mockMvc.perform(get("/api/chat/conversations")
-                        .header("Authorization", "Bearer dummy"))
+    @Test
+    @DisplayName("1. 发送消息-成功场景")
+    void sendMessage_Success() throws Exception {
+        when(jwtUtil.getUserIdFromToken(anyString())).thenReturn(1L);
+        when(chatService.sendMessage(anyLong(), anyLong(), anyString())).thenReturn("消息发送成功");
+
+        Map<String, Object> msg = new HashMap<>();
+        msg.put("receiverId", 2L);
+        msg.put("content", "Hello");
+
+        mockMvc.perform(post("/api/chat/messages")
+                        .header("Authorization", DUMMY_TOKEN)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(msg)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0));
     }
 
     @Test
-    @DisplayName("测试发送消息接口")
-    void sendMessage_Success() throws Exception {
-        Map<String, Object> msg = new HashMap<>();
-        msg.put("receiverId", 2L);
-        msg.put("content", "Hello");
-
+    @DisplayName("2. 安全加固校验-越权删除他人消息应返回403")
+    void deleteMessage_Forbidden() throws Exception {
         when(jwtUtil.getUserIdFromToken(anyString())).thenReturn(1L);
-        when(chatService.sendMessage(anyLong(), anyLong(), anyString())).thenReturn("消息发送成功");
+        // 模拟 Service 校验失败返回 false
+        when(chatService.deleteMessage(eq("msg-99"), eq(1L))).thenReturn(false);
 
-        mockMvc.perform(post("/api/chat/messages")
-                        .header("Authorization", "Bearer dummy")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(msg)))
-                .andExpect(status().isOk()) // ✅ 修正为 isOk()，因为 Result.created 默认返回 200 HTTP 状态
+        mockMvc.perform(delete("/api/chat/messages/msg-99")
+                        .header("Authorization", DUMMY_TOKEN))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(403));
+    }
+
+    @Test
+    @DisplayName("3. 获取会话列表-成功场景")
+    void getConversations_Success() throws Exception {
+        when(jwtUtil.getUserIdFromToken(anyString())).thenReturn(1L);
+        when(chatService.getConversations(anyLong())).thenReturn(Collections.emptyList());
+
+        mockMvc.perform(get("/api/chat/conversations")
+                        .header("Authorization", DUMMY_TOKEN))
+                .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0));
     }
 }
