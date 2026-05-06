@@ -1,6 +1,7 @@
 # 趣搭星球（FunMate Planet）
 
 [![CI](https://github.com/point423/FunMate-Planet/actions/workflows/ci.yml/badge.svg)](https://github.com/point423/FunMate-Planet/actions)
+[![Security Scan](https://github.com/point423/FunMate-Planet/actions/workflows/security.yml/badge.svg)](https://github.com/point423/FunMate-Planet/actions)
 [![Backend Service Coverage](https://img.shields.io/badge/Service%20Coverage-62%25-green.svg)](https://github.com/point423/FunMate-Planet)
 [![Frontend Coverage](https://img.shields.io/badge/Frontend%20Coverage-64%25-green.svg)](https://github.com/point423/FunMate-Planet)
 
@@ -21,17 +22,21 @@
 - **评价体系**：活动后用户互评，系统自动计算并更新**好评排行榜**。
 - **活动日记**：支持多图展示的线下活动回忆墙。
 
-## 质量保障（CI/CD & 自动化测试）
-本项目建立了完善的持续集成与测试体系：
+## 质量保障（CI/CD & 安全加固）
+本项目建立了完善的持续集成与安全防御体系：
 - **CI 流水线**：基于 GitHub Actions 实现，代码提交后自动触发编译、单元测试及覆盖率统计。
-- **后端测试**：基于 JUnit 5 + Mockito 实现，涵盖 55 个核心测试用例。
-- **覆盖率**：核心 Service 模块指令覆盖率已达 62%。
+- **安全加固**：通过 AI 安全审查修复了 IDOR 越权及硬编码漏洞。
+- **自动扫描**：集成 **Gitleaks** 自动化流水线，实时监控代码库中的密钥泄露风险。
+- **覆盖率**：核心 Service 模块指令覆盖率达 62%。
 
 ## 运行与测试指南
 
 ### 1. 快速启动 (Docker 环境)
 ```sh
-# 编译打包并启动
+# 1. 复制环境模板并配置
+cp .env.example .env
+
+# 2. 编译打包并启动
 mvn clean package -DskipTests
 docker compose up -d --build
 ```
