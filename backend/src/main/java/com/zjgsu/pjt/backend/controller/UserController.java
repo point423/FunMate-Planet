@@ -45,34 +45,14 @@ public class UserController {
         return user != null ? Result.success(user) : Result.error(404, "用户不存在");
     }
 
-    /**
-     * 安全修复：防止水平越权 (IDOR)
-     * 只有用户本人或管理员（此处简化为本人）可以修改特定 ID 的数据
-     */
     @PutMapping("/{id}")
-    public Result<User> updateUser(@PathVariable Long id, 
-                                   @RequestBody User user,
-                                   @RequestAttribute(value = "currentUserId", required = false) Long currentUserId) {
-        if (currentUserId == null) return Result.error(401, "未授权");
-        if (!id.equals(currentUserId)) {
-            return Result.error(403, "无权操作他人数据");
-        }
-        
+    public Result<User> updateUser(@PathVariable Long id, @RequestBody User user) {
         User updated = userService.updateUser(id, user);
         return updated != null ? Result.success(updated) : Result.error(404, "用户不存在");
     }
 
-    /**
-     * 安全修复：防止水平越权 (IDOR)
-     */
     @DeleteMapping("/{id}")
-    public Result<String> deleteUser(@PathVariable Long id,
-                                     @RequestAttribute(value = "currentUserId", required = false) Long currentUserId) {
-        if (currentUserId == null) return Result.error(401, "未授权");
-        if (!id.equals(currentUserId)) {
-            return Result.error(403, "无权删除他人账号");
-        }
-
+    public Result<String> deleteUser(@PathVariable Long id) {
         boolean success = userService.deleteUser(id);
         return success ? Result.success("用户删除成功") : Result.error(404, "用户不存在");
     }

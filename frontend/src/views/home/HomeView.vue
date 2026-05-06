@@ -144,7 +144,7 @@ const normalizeTags = (raw: unknown): string[] => {
   return [];
 };
 
-const normalizeNearbyUser = (raw: any): NearbyUser => ({
+const normalizeNearbyUser = (raw: Record<string, unknown>): NearbyUser => ({
   ...raw,
   bio: raw?.bio ?? "",
   avatar: raw?.avatar || "/default-avatar.png",

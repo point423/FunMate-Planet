@@ -2,7 +2,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { nextTick } from 'vue'
 import AiAssistant from '@/components/common/AiAssistant.vue'
-import { ElMessage } from 'element-plus'
 
 describe('AiAssistant.vue', () => {
   beforeEach(() => {
