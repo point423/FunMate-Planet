@@ -17,10 +17,7 @@ public class ChatController {
     private ChatService chatService;
 
     @GetMapping("/conversations")
-    public Result<List<Map<String, Object>>> getConversations(@RequestAttribute(value = "currentUserId", required = false) Long currentUserId) {
-        if (currentUserId == null) {
-            return Result.error(401, "未授权");
-        }
+    public Result<List<Map<String, Object>>> getConversations(@RequestAttribute("currentUserId") Long currentUserId) {
         return Result.success(chatService.getConversations(currentUserId));
     }
 
@@ -29,32 +26,27 @@ public class ChatController {
             @RequestParam Long targetUserId,
             @RequestParam(defaultValue = "1") int pageNum,
             @RequestParam(defaultValue = "50") int pageSize,
-            @RequestAttribute(value = "currentUserId", required = false) Long currentUserId) {
-
-        if (currentUserId == null) {
-            return Result.error(401, "未授权");
-        }
-
+            @RequestAttribute("currentUserId") Long currentUserId) {
         return Result.success(chatService.getMessages(currentUserId, targetUserId, pageNum, pageSize));
     }
 
     @PostMapping("/messages")
     public Result<String> sendMessage(@RequestBody Map<String, Object> message,
-                                      @RequestAttribute(value = "currentUserId", required = false) Long currentUserId) {
-        if (currentUserId == null) {
-            return Result.error(401, "未授权");
-        }
-
+                                      @RequestAttribute("currentUserId") Long currentUserId) {
         Long receiverId = Long.valueOf(message.get("receiverId").toString());
         String content = message.get("content").toString();
-
         String result = chatService.sendMessage(currentUserId, receiverId, content);
         return Result.created(result);
     }
 
+    /**
+     * 安全修复：防止水平越权 (IDOR)
+     * 只有发送者可以删除自己的消息
+     */
     @DeleteMapping("/messages/{messageId}")
-    public Result<String> deleteMessage(@PathVariable String messageId) {
-        boolean success = chatService.deleteMessage(messageId);
-        return success ? Result.success("消息已删除") : Result.error(404, "消息不存在");
+    public Result<String> deleteMessage(@PathVariable String messageId,
+                                        @RequestAttribute("currentUserId") Long currentUserId) {
+        boolean success = chatService.deleteMessage(messageId, currentUserId);
+        return success ? Result.success("消息已删除") : Result.error(403, "无权删除此消息或消息不存在");
     }
 }

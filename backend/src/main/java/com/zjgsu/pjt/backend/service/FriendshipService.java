@@ -8,6 +8,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Objects;
+
 @Service
 public class FriendshipService {
 
@@ -41,9 +43,17 @@ public class FriendshipService {
         return friendshipRepository.findByUserId(userId, pageable);
     }
 
+    /**
+     * 安全加固：删除社交关系（增加 IDOR 校验）
+     */
     @Transactional
-    public boolean deleteFriendship(Long id) {
-        if (friendshipRepository.existsById(id)) {
+    public boolean deleteFriendship(Long id, Long currentUserId) {
+        Friendship friendship = friendshipRepository.findById(id).orElse(null);
+        if (friendship != null) {
+            // 只有关系的发起者可以主动删除这条记录
+            if (!Objects.equals(friendship.getUserId(), currentUserId)) {
+                return false;
+            }
             friendshipRepository.deleteById(id);
             return true;
         }

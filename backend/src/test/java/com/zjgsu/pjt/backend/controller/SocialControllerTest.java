@@ -17,10 +17,8 @@ import java.util.Collections;
 
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -36,17 +34,16 @@ public class SocialControllerTest {
     @MockBean
     private JwtUtil jwtUtil;
 
-    private final String DUMMY_TOKEN = "Bearer dummy-token";
+    private final String DUMMY_TOKEN = "Bearer dummy";
 
     @Test
-    @DisplayName("测试关注用户接口")
+    @DisplayName("1. 关注用户-成功场景")
     void followUser_Success() throws Exception {
-        // ✅ 核心修复：Mock Token 解析
         when(jwtUtil.getUserIdFromToken(anyString())).thenReturn(1L);
         when(friendshipService.follow(anyLong(), anyLong(), anyBoolean())).thenReturn("关注成功");
 
         mockMvc.perform(post("/api/users/2/follow")
-                        .header("Authorization", DUMMY_TOKEN) // ✅ 携带 Token
+                        .header("Authorization", DUMMY_TOKEN)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"follow\": true}"))
                 .andExpect(status().isOk())
@@ -54,14 +51,15 @@ public class SocialControllerTest {
     }
 
     @Test
-    @DisplayName("测试获取粉丝列表接口")
-    void getFollowers_Success() throws Exception {
+    @DisplayName("2. 安全加固校验-越权删除关注记录应返回403")
+    void deleteFriendship_Forbidden() throws Exception {
         when(jwtUtil.getUserIdFromToken(anyString())).thenReturn(1L);
-        when(friendshipService.getFollowers(anyLong(), any())).thenReturn(new PageImpl<>(Collections.emptyList()));
+        // 模拟 Service 校验失败返回 false
+        when(friendshipService.deleteFriendship(eq(99L), eq(1L))).thenReturn(false);
 
-        mockMvc.perform(get("/api/users/1/followers")
-                        .header("Authorization", DUMMY_TOKEN)) // ✅ 补全 Token
+        mockMvc.perform(delete("/api/users/friendship/99")
+                        .header("Authorization", DUMMY_TOKEN))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(0));
+                .andExpect(jsonPath("$.code").value(403));
     }
 }

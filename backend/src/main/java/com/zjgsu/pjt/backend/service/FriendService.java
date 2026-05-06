@@ -9,10 +9,12 @@ import com.zjgsu.pjt.backend.repository.FriendshipRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @Service
@@ -42,6 +44,7 @@ public class FriendService {
         return userRepository.findById(friendId).orElse(null);
     }
 
+    @Transactional
     public boolean deleteFriend(Long userId, Long friendId) {
         Friendship friendship = friendshipRepository.findByUserIdAndFriendId(userId, friendId);
         if (friendship != null) {
@@ -74,13 +77,23 @@ public class FriendService {
         return data;
     }
 
-    public FriendRequest getRequestById(Long requestId) {
-        return friendRequestRepository.findById(requestId).orElse(null);
+    public FriendRequest getRequestById(Long requestId, Long currentUserId) {
+        FriendRequest request = friendRequestRepository.findById(requestId).orElse(null);
+        // 安全校验：只有发送者或接收者可以查看详情
+        if (request != null && (request.getSenderId().equals(currentUserId) || request.getReceiverId().equals(currentUserId))) {
+            return request;
+        }
+        return null;
     }
 
-    public boolean handleRequest(Long requestId, boolean accept) {
+    @Transactional
+    public boolean handleRequest(Long requestId, boolean accept, Long currentUserId) {
         FriendRequest req = friendRequestRepository.findById(requestId).orElse(null);
         if (req != null) {
+            // 安全校验：只有接收者可以处理申请
+            if (!Objects.equals(req.getReceiverId(), currentUserId)) {
+                return false;
+            }
             req.setStatus(accept ? "accepted" : "declined");
             friendRequestRepository.save(req);
 
@@ -100,8 +113,14 @@ public class FriendService {
         return false;
     }
 
-    public boolean deleteRequest(Long requestId) {
-        if (friendRequestRepository.existsById(requestId)) {
+    @Transactional
+    public boolean deleteRequest(Long requestId, Long currentUserId) {
+        FriendRequest req = friendRequestRepository.findById(requestId).orElse(null);
+        if (req != null) {
+            // 安全校验：只有相关人员可以删除记录
+            if (!req.getSenderId().equals(currentUserId) && !req.getReceiverId().equals(currentUserId)) {
+                return false;
+            }
             friendRequestRepository.deleteById(requestId);
             return true;
         }

@@ -21,7 +21,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-public class DiscoverServiceTest {
+public class DiscoverServiceTest { // ✅ 修复：类名必须与文件名一致
 
     @Mock
     private UserRepository userRepository;

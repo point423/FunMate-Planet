@@ -19,11 +19,7 @@ public class EvaluationController {
 
     @PostMapping
     public Result<UserEvaluation> createEvaluation(@RequestBody UserEvaluation evaluation,
-                                                    @RequestAttribute(value = "currentUserId", required = false) Long currentUserId) {
-        if (currentUserId == null) {
-            return Result.error(401, "未授权");
-        }
-
+                                                    @RequestAttribute("currentUserId") Long currentUserId) {
         evaluation.setEvaluatorId(currentUserId);
         UserEvaluation created = evaluationService.createEvaluation(evaluation);
         return Result.created(created);
@@ -41,20 +37,32 @@ public class EvaluationController {
 
     @GetMapping("/{id}")
     public Result<UserEvaluation> getEvaluationById(@PathVariable Long id) {
-        Optional<UserEvaluation> evaluation = evaluationService.getEvaluationById(id);
-        return evaluation.map(Result::success).orElseGet(() -> Result.error(404, "评价不存在"));
+        return evaluationService.getEvaluationById(id)
+                .map(Result::success)
+                .orElse(Result.error(404, "评价不存在"));
     }
 
+    /**
+     * 安全修复：防止水平越权 (IDOR)
+     */
     @PutMapping("/{id}")
     public Result<UserEvaluation> updateEvaluation(@PathVariable Long id,
-                                                    @RequestBody UserEvaluation updatedEvaluation) {
-        UserEvaluation updated = evaluationService.updateEvaluation(id, updatedEvaluation);
-        return updated != null ? Result.success(updated) : Result.error(404, "评价不存在");
+                                                    @RequestBody UserEvaluation updatedEvaluation,
+                                                    @RequestAttribute("currentUserId") Long currentUserId) {
+        UserEvaluation updated = evaluationService.updateEvaluation(id, updatedEvaluation, currentUserId);
+        if (updated == null) {
+            return Result.error(403, "无权修改此评价或评价不存在");
+        }
+        return Result.success(updated);
     }
 
+    /**
+     * 安全修复：防止水平越权 (IDOR)
+     */
     @DeleteMapping("/{id}")
-    public Result<String> deleteEvaluation(@PathVariable Long id) {
-        boolean success = evaluationService.deleteEvaluation(id);
-        return success ? Result.success("评价已删除") : Result.error(404, "评价不存在");
+    public Result<String> deleteEvaluation(@PathVariable Long id,
+                                           @RequestAttribute("currentUserId") Long currentUserId) {
+        boolean success = evaluationService.deleteEvaluation(id, currentUserId);
+        return success ? Result.success("评价已删除") : Result.error(403, "无权删除此评价或评价不存在");
     }
 }

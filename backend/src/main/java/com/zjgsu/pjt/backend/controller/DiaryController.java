@@ -1,9 +1,9 @@
-
 package com.zjgsu.pjt.backend.controller;
 
 import com.zjgsu.pjt.backend.common.Result;
 import com.zjgsu.pjt.backend.entity.ActivityDiary;
-import com.zjgsu.pjt.backend.repository.ActivityDiaryRepository;
+import com.zjgsu.pjt.backend.service.DiaryService;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -15,11 +15,15 @@ import org.springframework.web.bind.annotation.*;
 public class DiaryController {
 
     @Autowired
-    private ActivityDiaryRepository diaryRepository;
+    private DiaryService diaryService;
 
     @PostMapping
-    public Result<ActivityDiary> createDiary(@RequestBody ActivityDiary diary) {
-        return Result.created(diaryRepository.save(diary));
+    public Result<ActivityDiary> createDiary(@RequestBody ActivityDiary diary, HttpServletRequest request) {
+        Long currentUserId = (Long) request.getAttribute("currentUserId");
+        if (currentUserId == null) return Result.error(401, "未授权");
+        
+        diary.setUserId(currentUserId);
+        return Result.created(diaryService.createDiary(diary));
     }
 
     @GetMapping
@@ -27,38 +31,35 @@ public class DiaryController {
                                                   @RequestParam(defaultValue = "1") int pageNum,
                                                   @RequestParam(defaultValue = "10") int pageSize) {
         PageRequest pageRequest = PageRequest.of(Math.max(pageNum - 1, 0), pageSize);
-
-        if (userId != null) {
-            return Result.success(diaryRepository.findByUserId(userId, pageRequest));
-        }
-        return Result.success(diaryRepository.findAll(pageRequest));
+        return Result.success(diaryService.getDiaries(userId, pageRequest));
     }
 
     @GetMapping("/{id}")
     public Result<ActivityDiary> getDiaryDetail(@PathVariable Long id) {
-        return diaryRepository.findById(id)
-                .map(Result::success)
-                .orElse(Result.error(404, "日记不存在"));
+        ActivityDiary diary = diaryService.findById(id);
+        return diary != null ? Result.success(diary) : Result.error(404, "日记不存在");
     }
 
     @PutMapping("/{id}")
-    public Result<ActivityDiary> updateDiary(@PathVariable Long id, @RequestBody ActivityDiary diary) {
-        return diaryRepository.findById(id)
-                .map(existing -> {
-                    existing.setContent(diary.getContent());
-                    existing.setImages(diary.getImages());
-                    existing.setActivityId(diary.getActivityId());
-                    return Result.success(diaryRepository.save(existing));
-                })
-                .orElse(Result.error(404, "日记不存在"));
+    public Result<ActivityDiary> updateDiary(@PathVariable Long id, 
+                                             @RequestBody ActivityDiary diary,
+                                             HttpServletRequest request) {
+        Long currentUserId = (Long) request.getAttribute("currentUserId");
+        if (currentUserId == null) return Result.error(401, "未授权");
+
+        ActivityDiary updated = diaryService.updateDiary(id, diary, currentUserId);
+        if (updated == null) {
+            return Result.error(403, "无权修改此日记或日记不存在");
+        }
+        return Result.success(updated);
     }
 
     @DeleteMapping("/{id}")
-    public Result<String> deleteDiary(@PathVariable Long id) {
-        if (diaryRepository.existsById(id)) {
-            diaryRepository.deleteById(id);
-            return Result.success("日记已删除");
-        }
-        return Result.error(404, "日记不存在");
+    public Result<String> deleteDiary(@PathVariable Long id, HttpServletRequest request) {
+        Long currentUserId = (Long) request.getAttribute("currentUserId");
+        if (currentUserId == null) return Result.error(401, "未授权");
+
+        boolean success = diaryService.deleteDiary(id, currentUserId);
+        return success ? Result.success("日记已删除") : Result.error(403, "无权删除此日记或日记不存在");
     }
 }

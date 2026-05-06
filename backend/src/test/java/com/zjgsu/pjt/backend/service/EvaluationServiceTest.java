@@ -43,11 +43,37 @@ public class EvaluationServiceTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(target));
         when(evaluationRepository.findByTargetId(1L)).thenReturn(Collections.singletonList(evaluation));
 
-        // ✅ 修复：方法名由 evaluate 改为 createEvaluation
         evaluationService.createEvaluation(evaluation);
 
         verify(evaluationRepository).save(evaluation);
         verify(userRepository).save(target);
         assertEquals(3.0, target.getAverageScore());
+    }
+
+    @Test
+    @DisplayName("安全校验-越权修改他人评价应返回null")
+    void updateEvaluation_Forbidden_ReturnsNull() {
+        UserEvaluation existing = new UserEvaluation();
+        existing.setId(1L);
+        existing.setEvaluatorId(99L); // 评价人是 99
+
+        when(evaluationRepository.findById(1L)).thenReturn(Optional.of(existing));
+
+        // 当前用户是 1L，尝试修改 99L 的评价
+        UserEvaluation result = evaluationService.updateEvaluation(1L, new UserEvaluation(), 1L);
+        assertNull(result);
+    }
+
+    @Test
+    @DisplayName("安全校验-越权删除他人评价应返回false")
+    void deleteEvaluation_Forbidden_ReturnsFalse() {
+        UserEvaluation existing = new UserEvaluation();
+        existing.setId(1L);
+        existing.setEvaluatorId(99L);
+
+        when(evaluationRepository.findById(1L)).thenReturn(Optional.of(existing));
+
+        boolean result = evaluationService.deleteEvaluation(1L, 1L);
+        assertFalse(result);
     }
 }

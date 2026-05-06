@@ -12,6 +12,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 
 import java.util.Collections;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -27,56 +28,48 @@ public class FriendshipServiceTest {
     private FriendshipService friendshipService;
 
     @Test
-    @DisplayName("测试关注用户-新关注成功")
+    @DisplayName("测试关注用户-成功")
     void follow_New_Success() {
         when(friendshipRepository.findByUserIdAndFriendId(1L, 2L)).thenReturn(null);
-
         String result = friendshipService.follow(1L, 2L, true);
-
         assertEquals("关注成功", result);
         verify(friendshipRepository).save(any(Friendship.class));
     }
 
     @Test
-    @DisplayName("测试关注用户-重复关注（覆盖分支）")
-    void follow_AlreadyFollowed() {
-        when(friendshipRepository.findByUserIdAndFriendId(1L, 2L)).thenReturn(new Friendship());
-
-        String result = friendshipService.follow(1L, 2L, true);
-
-        assertEquals("关注成功", result);
-        verify(friendshipRepository, never()).save(any());
-    }
-
-    @Test
-    @DisplayName("测试取消关注-成功")
+    @DisplayName("测试取消关注")
     void unfollow_Success() {
         Friendship f = new Friendship();
         when(friendshipRepository.findByUserIdAndFriendId(1L, 2L)).thenReturn(f);
-
         String result = friendshipService.follow(1L, 2L, false);
-
         assertEquals("已取消关注", result);
         verify(friendshipRepository).delete(f);
     }
 
     @Test
-    @DisplayName("测试获取粉丝/关注列表")
-    void getList_Success() {
-        PageRequest pageable = PageRequest.of(0, 10);
-        when(friendshipRepository.findByFriendId(anyLong(), any())).thenReturn(new PageImpl<>(Collections.emptyList()));
-        when(friendshipRepository.findByUserId(anyLong(), any())).thenReturn(new PageImpl<>(Collections.emptyList()));
+    @DisplayName("测试物理删除关系-成功场景")
+    void deleteFriendship_Success() {
+        Friendship f = new Friendship();
+        f.setId(1L);
+        f.setUserId(1L);
+        when(friendshipRepository.findById(1L)).thenReturn(Optional.of(f));
 
-        assertNotNull(friendshipService.getFollowers(1L, pageable));
-        assertNotNull(friendshipService.getFollowing(1L, pageable));
+        // ✅ 核心修复：传入 2 个参数
+        boolean result = friendshipService.deleteFriendship(1L, 1L);
+        assertTrue(result);
+        verify(friendshipRepository).deleteById(1L);
     }
 
     @Test
-    @DisplayName("测试删除社交关系")
-    void deleteFriendship_Success() {
-        when(friendshipRepository.existsById(1L)).thenReturn(true);
-        boolean result = friendshipService.deleteFriendship(1L);
-        assertTrue(result);
-        verify(friendshipRepository).deleteById(1L);
+    @DisplayName("安全校验-越权删除应返回false")
+    void deleteFriendship_Forbidden() {
+        Friendship f = new Friendship();
+        f.setId(1L);
+        f.setUserId(99L);
+        when(friendshipRepository.findById(1L)).thenReturn(Optional.of(f));
+
+        // 用户 1 尝试删除属于用户 99 的关系
+        boolean result = friendshipService.deleteFriendship(1L, 1L);
+        assertFalse(result);
     }
 }

@@ -8,9 +8,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 @Service
 public class ActivityService {
@@ -36,9 +38,10 @@ public class ActivityService {
         return activityRepository.findById(id).orElse(null);
     }
 
-    public Activity updateActivity(Long id, Activity updated) {
+    @Transactional
+    public Activity updateActivity(Long id, Activity updated, Long currentUserId) {
         Activity existing = findById(id);
-        if (existing != null) {
+        if (existing != null && Objects.equals(existing.getCreatorId(), currentUserId)) {
             if (updated.getTitle() != null) existing.setTitle(updated.getTitle());
             if (updated.getDescription() != null) existing.setDescription(updated.getDescription());
             if (updated.getActivityTime() != null) existing.setActivityTime(updated.getActivityTime());
@@ -49,9 +52,28 @@ public class ActivityService {
         return null;
     }
 
-    public boolean deleteActivity(Long id) {
-        if (activityRepository.existsById(id)) {
+    @Transactional
+    public boolean deleteActivity(Long id, Long currentUserId) {
+        Activity existing = findById(id);
+        if (existing != null && Objects.equals(existing.getCreatorId(), currentUserId)) {
             activityRepository.deleteById(id);
+            return true;
+        }
+        return false;
+    }
+
+    public boolean joinActivity(Long activityId, Long currentUserId) {
+        Activity activity = findById(activityId);
+        // 此处逻辑可扩展：检查是否已加入、活动是否结束等
+        return activity != null;
+    }
+
+    @Transactional
+    public boolean endActivity(Long activityId, Long currentUserId) {
+        Activity activity = findById(activityId);
+        if (activity != null && Objects.equals(activity.getCreatorId(), currentUserId)) {
+            activity.setStatus(2); // 2: 已结束
+            activityRepository.save(activity);
             return true;
         }
         return false;

@@ -13,32 +13,26 @@ public class ChatService {
 
     public List<Map<String, Object>> getConversations(Long userId) {
         List<Map<String, Object>> conversations = new ArrayList<>();
+        if (messageStore.containsKey(userId)) {
+            List<Map<String, Object>> messages = messageStore.get(userId);
+            Map<Long, Map<String, Object>> latestMessages = new HashMap<>();
 
-        messageStore.forEach((storeKey, messages) -> {
-            // 只有当 storeKey 是当前用户时，才去提取对应的聊天对象
-            if (Objects.equals(storeKey, userId) && !messages.isEmpty()) {
-                // 这里的逻辑需要根据消息记录提取所有不同的联系人
-                Map<Long, Map<String, Object>> latestMessages = new HashMap<>();
-
-                for (Map<String, Object> msg : messages) {
-                    Long senderId = (Long) msg.get("senderId");
-                    Long receiverId = (Long) msg.get("receiverId");
-                    Long targetId = Objects.equals(senderId, userId) ? receiverId : senderId;
-
-                    latestMessages.put(targetId, msg);
-                }
-
-                latestMessages.forEach((targetId, lastMsg) -> {
-                    Map<String, Object> conv = new HashMap<>();
-                    conv.put("userId", targetId);
-                    conv.put("lastMessage", lastMsg.get("content"));
-                    conv.put("lastMessageTime", lastMsg.get("createTime"));
-                    conv.put("unreadCount", 0);
-                    conversations.add(conv);
-                });
+            for (Map<String, Object> msg : messages) {
+                Long senderId = (Long) msg.get("senderId");
+                Long receiverId = (Long) msg.get("receiverId");
+                Long targetId = Objects.equals(senderId, userId) ? receiverId : senderId;
+                latestMessages.put(targetId, msg);
             }
-        });
 
+            latestMessages.forEach((targetId, lastMsg) -> {
+                Map<String, Object> conv = new HashMap<>();
+                conv.put("userId", targetId);
+                conv.put("lastMessage", lastMsg.get("content"));
+                conv.put("lastMessageTime", lastMsg.get("createTime"));
+                conv.put("unreadCount", 0);
+                conversations.add(conv);
+            });
+        }
         return conversations;
     }
 
@@ -47,10 +41,8 @@ public class ChatService {
 
         List<Map<String, Object>> filteredMessages = allMessages.stream()
                 .filter(msg ->
-                        (Objects.equals(msg.get("senderId"), currentUserId) &&
-                                Objects.equals(msg.get("receiverId"), targetUserId)) ||
-                                (Objects.equals(msg.get("senderId"), targetUserId) &&
-                                        Objects.equals(msg.get("receiverId"), currentUserId)))
+                        (Objects.equals(msg.get("senderId"), currentUserId) && Objects.equals(msg.get("receiverId"), targetUserId)) ||
+                        (Objects.equals(msg.get("senderId"), targetUserId) && Objects.equals(msg.get("receiverId"), currentUserId)))
                 .sorted((m1, m2) -> ((LocalDateTime) m2.get("createTime")).compareTo((LocalDateTime) m1.get("createTime")))
                 .collect(Collectors.toList());
 
@@ -88,10 +80,25 @@ public class ChatService {
         return "消息发送成功";
     }
 
-    public boolean deleteMessage(String messageId) {
+    /**
+     * 安全加固：增加 IDOR 校验
+     * 只有消息发送者可以删除自己的消息
+     */
+    public boolean deleteMessage(String messageId, Long currentUserId) {
+        final boolean[] deleted = {false};
         messageStore.forEach((userId, messages) -> {
-            messages.removeIf(msg -> Objects.equals(msg.get("id"), messageId));
+            Iterator<Map<String, Object>> it = messages.iterator();
+            while (it.hasNext()) {
+                Map<String, Object> msg = it.next();
+                if (Objects.equals(msg.get("id"), messageId)) {
+                    // 安全拦截：校验发送者身份
+                    if (Objects.equals(msg.get("senderId"), currentUserId)) {
+                        it.remove();
+                        deleted[0] = true;
+                    }
+                }
+            }
         });
-        return true;
+        return deleted[0];
     }
 }

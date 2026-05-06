@@ -6,7 +6,10 @@ import com.zjgsu.pjt.backend.repository.UserEvaluationRepository;
 import com.zjgsu.pjt.backend.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -19,6 +22,7 @@ public class EvaluationService {
     @Autowired
     private UserRepository userRepository;
 
+    @Transactional
     public UserEvaluation createEvaluation(UserEvaluation evaluation) {
         UserEvaluation saved = evaluationRepository.save(evaluation);
         updateUserAverageScore(evaluation.getTargetId());
@@ -31,7 +35,7 @@ public class EvaluationService {
 
     public List<UserEvaluation> getEvaluationsByEvaluatorId(Long evaluatorId) {
         return evaluationRepository.findAll().stream()
-                .filter(eval -> eval.getEvaluatorId().equals(evaluatorId))
+                .filter(eval -> Objects.equals(eval.getEvaluatorId(), evaluatorId))
                 .collect(Collectors.toList());
     }
 
@@ -39,12 +43,15 @@ public class EvaluationService {
         return evaluationRepository.findById(id);
     }
 
-    public UserEvaluation updateEvaluation(Long id, UserEvaluation updatedEvaluation) {
-        Optional<UserEvaluation> existingOpt = evaluationRepository.findById(id);
-        if (existingOpt.isPresent()) {
-            UserEvaluation existing = existingOpt.get();
-            existing.setScoreLevel(updatedEvaluation.getScoreLevel());
-            existing.setActivityId(updatedEvaluation.getActivityId());
+    /**
+     * 安全加固：更新评价（增加越权校验）
+     */
+    @Transactional
+    public UserEvaluation updateEvaluation(Long id, UserEvaluation updated, Long currentUserId) {
+        UserEvaluation existing = evaluationRepository.findById(id).orElse(null);
+        if (existing != null && Objects.equals(existing.getEvaluatorId(), currentUserId)) {
+            existing.setScoreLevel(updated.getScoreLevel());
+            existing.setActivityId(updated.getActivityId());
             UserEvaluation saved = evaluationRepository.save(existing);
             updateUserAverageScore(existing.getTargetId());
             return saved;
@@ -52,10 +59,14 @@ public class EvaluationService {
         return null;
     }
 
-    public boolean deleteEvaluation(Long id) {
-        Optional<UserEvaluation> evaluationOpt = evaluationRepository.findById(id);
-        if (evaluationOpt.isPresent()) {
-            Long targetId = evaluationOpt.get().getTargetId();
+    /**
+     * 安全加固：删除评价（增加越权校验）
+     */
+    @Transactional
+    public boolean deleteEvaluation(Long id, Long currentUserId) {
+        UserEvaluation evaluation = evaluationRepository.findById(id).orElse(null);
+        if (evaluation != null && Objects.equals(evaluation.getEvaluatorId(), currentUserId)) {
+            Long targetId = evaluation.getTargetId();
             evaluationRepository.deleteById(id);
             updateUserAverageScore(targetId);
             return true;
@@ -66,7 +77,6 @@ public class EvaluationService {
     private void updateUserAverageScore(Long targetId) {
         List<UserEvaluation> evals = evaluationRepository.findByTargetId(targetId);
         double avg = evals.stream().mapToInt(UserEvaluation::getScoreLevel).average().orElse(0.0);
-
         User target = userRepository.findById(targetId).orElse(null);
         if (target != null) {
             target.setAverageScore(avg);

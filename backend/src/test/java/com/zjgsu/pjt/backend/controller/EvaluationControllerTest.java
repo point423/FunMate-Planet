@@ -14,12 +14,10 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -38,8 +36,10 @@ public class EvaluationControllerTest {
     @Autowired
     private ObjectMapper objectMapper;
 
+    private final String DUMMY_TOKEN = "Bearer dummy";
+
     @Test
-    @DisplayName("测试评价伙伴接口")
+    @DisplayName("1. 评价伙伴-成功场景")
     void evaluate_Success() throws Exception {
         UserEvaluation eval = new UserEvaluation();
         eval.setTargetId(2L);
@@ -48,10 +48,37 @@ public class EvaluationControllerTest {
         when(jwtUtil.getUserIdFromToken(anyString())).thenReturn(1L);
 
         mockMvc.perform(post("/api/evaluations")
-                        .header("Authorization", "Bearer dummy")
+                        .header("Authorization", DUMMY_TOKEN)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(eval)))
-                .andExpect(status().isOk()) // ✅ 修正：由 isCreated 改为 isOk
+                .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0));
+    }
+
+    @Test
+    @DisplayName("2. 安全加固校验-修改他人评价应返回403")
+    void updateEvaluation_Forbidden() throws Exception {
+        when(jwtUtil.getUserIdFromToken(anyString())).thenReturn(1L);
+        // 模拟 Service 返回 null 代表越权
+        when(evaluationService.updateEvaluation(eq(1L), any(), eq(1L))).thenReturn(null);
+
+        mockMvc.perform(put("/api/evaluations/1")
+                        .header("Authorization", DUMMY_TOKEN)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"scoreLevel\":1}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(403));
+    }
+
+    @Test
+    @DisplayName("3. 安全加固校验-删除他人评价应返回403")
+    void deleteEvaluation_Forbidden() throws Exception {
+        when(jwtUtil.getUserIdFromToken(anyString())).thenReturn(1L);
+        when(evaluationService.deleteEvaluation(eq(99L), eq(1L))).thenReturn(false);
+
+        mockMvc.perform(delete("/api/evaluations/99")
+                        .header("Authorization", DUMMY_TOKEN))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(403));
     }
 }
