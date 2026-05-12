@@ -54,6 +54,16 @@ jobs:
             echo "Frontend directory not found, skipping."
           fi
 
+      - name: Dependency audit
+        if: ${{ always() }}
+        run: |
+          if [ -d "frontend" ]; then
+            npm --prefix frontend ci
+            npm --prefix frontend audit --audit-level=high || echo "npm audit finished with issues"
+          else
+            echo "Frontend directory not found, skipping audit."
+          fi
+
       - name: Lint
         run: |
           if [ -d "frontend" ]; then
