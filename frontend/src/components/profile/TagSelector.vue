@@ -5,6 +5,7 @@
         v-for="tag in ALL_TAGS"
         :key="tag.value"
         class="tag-chip"
+        type="button"
         :class="{ active: selected.includes(tag.value) }"
         @click="toggle(tag.value)"
       >
@@ -16,34 +17,28 @@
 </template>
 
 <script setup lang="ts">
-import { defineProps, defineEmits } from 'vue'
+import { defineProps, defineEmits, computed } from 'vue'
+import { TAG_META_LIST } from '@/utils/tags'
 
-const props = defineProps<{ modelValue: string[]; max?: number }>()
+const props = defineProps<{ modelValue?: string[]; max?: number }>()
 const emit  = defineEmits<{ (e: 'update:modelValue', v: string[]): void }>()
 
 const max = props.max ?? 8
-const selected = props.modelValue
 
-const ALL_TAGS = [
-  { value: 'read',    emoji: '📚', label: 'read'    },
-  { value: 'climb',   emoji: '⛰',  label: 'climb'   },
-  { value: 'cycle',   emoji: '🚲', label: 'cycle'   },
-  { value: 'photo',   emoji: '📷', label: 'photo'   },
-  { value: 'draw',    emoji: '🎨', label: 'draw'    },
-  { value: 'music',   emoji: '🎵', label: 'music'   },
-  { value: 'shop',    emoji: '🛍', label: 'shop'    },
-  { value: 'cook',    emoji: '🍳', label: 'cook'    },
-  { value: 'plant',   emoji: '🌿', label: 'plant'   },
-  { value: 'journal', emoji: '📒', label: 'journal' },
-  { value: 'travel',  emoji: '✈️', label: 'travel'  },
-  { value: 'kungfu',  emoji: '🥋', label: 'Kung Fu' },
-]
+// computed getter/setter so we always operate on current value and emit updates
+const selected = computed<string[]>({
+  get: () => props.modelValue ?? [],
+  set: (v: string[]) => emit('update:modelValue', v),
+})
+
+const ALL_TAGS = TAG_META_LIST
 
 const toggle = (val: string) => {
-  const next = selected.includes(val)
-    ? selected.filter(v => v !== val)
-    : selected.length < max ? [...selected, val] : selected
-  emit('update:modelValue', next)
+  const curr = selected.value
+  const next = curr.includes(val)
+    ? curr.filter(v => v !== val)
+    : curr.length < max ? [...curr, val] : curr
+  selected.value = next
 }
 </script>
 
@@ -51,4 +46,20 @@ const toggle = (val: string) => {
 .tag-selector { display: flex; flex-direction: column; gap: 16px; }
 .tag-grid { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
 .tag-hint  { text-align: center; font-size: 12px; color: var(--color-text-secondary); }
+
+.tag-chip {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 6px 10px; border-radius: 9999px;
+  border: 1px solid var(--color-border-dim);
+  background: transparent; color: var(--color-text);
+  font-size: 13px; cursor: pointer; transition: all 0.12s;
+}
+.tag-chip span { line-height: 1; }
+.tag-chip:hover { transform: translateY(-1px); opacity: 0.95; }
+
+.tag-chip.active {
+  background: var(--color-green);
+  color: #111;
+  border-color: var(--color-green);
+}
 </style>

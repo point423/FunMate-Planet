@@ -13,6 +13,28 @@ service.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token')
     if (token) config.headers.Authorization = `Bearer ${token}`
+    // If sending FormData, let the browser set the Content-Type (including boundary)
+    // to avoid adding charset which some servers (Spring) may reject.
+    if (config.data instanceof FormData) {
+      try {
+        // remove common header keys that axios may set in defaults
+        if (config.headers) {
+          const h = config.headers as unknown as Record<string, unknown>
+          Reflect.deleteProperty(h, 'Content-Type')
+          Reflect.deleteProperty(h, 'content-type')
+          if (h.common && typeof h.common === 'object') {
+            Reflect.deleteProperty(h.common as Record<string, unknown>, 'Content-Type')
+            Reflect.deleteProperty(h.common as Record<string, unknown>, 'content-type')
+          }
+          if (h.post && typeof h.post === 'object') {
+            Reflect.deleteProperty(h.post as Record<string, unknown>, 'Content-Type')
+            Reflect.deleteProperty(h.post as Record<string, unknown>, 'content-type')
+          }
+        }
+      } catch (e) {
+        // ignore
+      }
+    }
     return config
   },
   (error) => Promise.reject(error),

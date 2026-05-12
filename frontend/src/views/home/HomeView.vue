@@ -20,7 +20,7 @@
         class="orbit-user"
         :style="orbitPositions[i]"
         :title="user.nickname"
-        @click="openUserDetail(user)"
+        @click="openOrbitUser(user)"
       >
         <img :src="user.avatar" :alt="user.nickname" />
         <div class="orbit-tooltip">
@@ -169,7 +169,10 @@ const loadOrbitUsers = async () => {
       pageSize: 6,
     })) as NearbyUser[];
 
-    orbitUsers.value = data.map(normalizeNearbyUser).slice(0, 6);
+    orbitUsers.value = data
+      .map(normalizeNearbyUser)
+      .filter((user) => user.id !== currentUserId.value)
+      .slice(0, 6);
   } catch {
     orbitUsers.value = [];
   }
@@ -180,6 +183,14 @@ const matchVisible = ref(false);
 const matchedUser = ref<NearbyUser | null>(null);
 let matchPool: NearbyUser[] = [];
 let matchIdx = 0;
+
+const openMatchCard = (pool: NearbyUser[], index = 0) => {
+  if (pool.length === 0) return;
+  matchPool = pool;
+  matchIdx = Math.max(0, Math.min(index, pool.length - 1));
+  matchedUser.value = matchPool[matchIdx];
+  matchVisible.value = true;
+};
 
 const openAutoMatch = async () => {
   if (matchPool.length === 0) {
@@ -211,6 +222,9 @@ const openAutoMatch = async () => {
         ElMessage.warning("暂无可匹配用户");
         return;
       }
+
+      openMatchCard(matchPool, 0);
+      return;
     } catch {
       ElMessage.error("加载匹配用户失败");
       return;
@@ -222,8 +236,7 @@ const openAutoMatch = async () => {
     return;
   }
 
-  matchedUser.value = matchPool[matchIdx % matchPool.length];
-  matchVisible.value = true;
+  openMatchCard(matchPool, matchIdx % matchPool.length);
 };
 
 const nextMatch = () => {
@@ -242,8 +255,9 @@ const applyFriend = async (user: NearbyUser) => {
   }
 };
 
-const openUserDetail = (user: NearbyUser) => {
-  router.push(`/user/${user.id}`);
+const openOrbitUser = (user: NearbyUser) => {
+  const index = orbitUsers.value.findIndex((item) => item.id === user.id);
+  openMatchCard(orbitUsers.value, index >= 0 ? index : 0);
 };
 
 // ── Lifecycle ──────────────────────────────────────────────────

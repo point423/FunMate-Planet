@@ -11,7 +11,8 @@ export const useActivityStore = defineStore('activity', () => {
   const currentActivity = ref<Activity | null>(null)
 
   const fetchDiaries = async () => {
-    diaries.value = await getMyDiaries() as Diary[]
+    const result = await getMyDiaries()
+    diaries.value = Array.isArray(result) ? result : []
   }
 
   const fetchDiaryDetail = async (id: number) => {

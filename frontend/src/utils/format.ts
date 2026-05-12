@@ -7,8 +7,11 @@ export const formatDate = (date: string | Date, pattern = 'dd/MM/yyyy') =>
 export const timeAgo = (date: string | Date) =>
   formatDistanceToNow(new Date(date), { addSuffix: true })
 
-export const formatDistance = (km: number) =>
-  km < 1 ? `${Math.round(km * 1000)}m` : `${km.toFixed(1)}km`
+export const formatDistance = (km?: number | null) => {
+  if (km == null || isNaN(Number(km))) return '--'
+  const n = Number(km)
+  return n < 1 ? `${Math.round(n * 1000)}m` : `${n.toFixed(1)}km`
+}
 
 export const formatScore = (score: number) =>
   `⭐ ${score.toFixed(2)}`

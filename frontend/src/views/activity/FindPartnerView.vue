@@ -41,6 +41,7 @@
         <button
           v-for="tag in TAG_LIST"
           :key="tag.value"
+          type="button"
           class="tag-chip"
           :class="{ active: activeTag === tag.value }"
           @click="selectTag(tag.value)"
@@ -56,7 +57,7 @@
           v-for="user in filteredUsers"
           :key="user.id"
           :user="user"
-          @click="openDetail"
+          @select="openDetail"
           @detail="openDetail"
         />
         <div v-if="filteredUsers.length === 0" class="no-results">
@@ -106,7 +107,7 @@
           v-for="(u, i) in leaderboard.slice(3)"
           :key="u.id"
           class="lb-item"
-          @click="openDetail(u as unknown as NearbyUser)"
+          @click="openDetail(u)"
         >
           <span class="lb-rank">#{{ i + 4 }}</span>
           <img :src="u.avatar" class="lb-ava">
@@ -130,10 +131,13 @@ import UserCard from '@/components/discover/UserCard.vue'
 import { getNearbyUsers, getLeaderboard } from '@/api/dazi'  // ✅ 改导入
 import { useUserStore } from '@/stores/user'
 import { formatDistance } from '@/utils/format'
+import { TAG_META_LIST } from '@/utils/tags'
+import { useLocation } from '@/composables/useLocation'
 import type { NearbyUser } from '@/types/user'
 
 const router    = useRouter()
 const userStore = useUserStore()
+const { updateLocation } = useLocation()
 
 // ── State ────────────────────────────────────────────────────────
 const users      = ref<NearbyUser[]>([])
@@ -151,43 +155,56 @@ const myStats = computed(() => ({
 // ── Tag list ──────────────────────────────────────────────────────
 const TAG_LIST = [
   { value: 'All',    emoji: '',   label: 'All'     },
-  { value: 'read',   emoji: '📚', label: 'read'    },
-  { value: 'climb',  emoji: '⛰',  label: 'climb'   },
-  { value: 'cycle',  emoji: '🚲', label: 'cycle'   },
-  { value: 'photo',  emoji: '📷', label: 'photo'   },
-  { value: 'draw',   emoji: '🎨', label: 'draw'    },
-  { value: 'music',  emoji: '🎵', label: 'music'   },
-  { value: 'shop',   emoji: '🛍', label: 'shop'    },
+  ...TAG_META_LIST,
 ]
+
+const normalizeTags = (tags: unknown): string[] => {
+  if (Array.isArray(tags)) return tags.map(tag => String(tag).trim()).filter(Boolean)
+  if (typeof tags === 'string') return tags.split(/[，,]/).map(tag => tag.trim()).filter(Boolean)
+  return []
+}
 
 // ── Filtered list ────────────────────────────────────────────────
 const filteredUsers = computed(() => {
   let list = [...users.value]
-  if (activeTag.value !== 'All')
-    list = list.filter(u => u.tags.some(t => t.toLowerCase().includes(activeTag.value.toLowerCase())))
-  if (searchQ.value)
+  if (activeTag.value !== 'All') {
+    const active = activeTag.value.toLowerCase()
+    list = list.filter(u => normalizeTags(u.tags).some(t => t.toLowerCase().includes(active)))
+  }
+  if (searchQ.value) {
+    const keyword = searchQ.value.toLowerCase()
     list = list.filter(u =>
-      u.nickname.toLowerCase().includes(searchQ.value.toLowerCase()) ||
-      u.tags.join(' ').toLowerCase().includes(searchQ.value.toLowerCase())
+      u.nickname.toLowerCase().includes(keyword) ||
+      normalizeTags(u.tags).join(' ').toLowerCase().includes(keyword)
     )
+  }
   return list
 })
 
 // ── Actions ──────────────────────────────────────────────────────
 const selectTag   = (tag: string) => { activeTag.value = tag }
 const applyFilters= () => { /* reactive via computed */ }
-const openDetail  = (user: NearbyUser) => router.push(`/user/${user.id}`)
+const openDetail  = (user: NearbyUser | (NearbyUser & { score: number })) => router.push(`/user/${user.id}`)
 
 // ── Load data ────────────────────────────────────────────────────
 const loadData = async () => {
   loading.value = true
   try {
+    await updateLocation()
     const [usersRes, lbRes] = await Promise.all([
       getNearbyUsers({ radius: 10, pageSize: 30 }),  // ✅ 改函数名
       getLeaderboard(),  // ✅ 改为无参数
     ])
-    users.value = usersRes as NearbyUser[]
-    leaderboard.value = lbRes as (NearbyUser & { score: number })[]
+    users.value = (usersRes as unknown as NearbyUser[]).map(u => ({
+      ...u,
+      tags: normalizeTags(u.tags),
+      distance: u.distance == null ? 0 : Number(u.distance),
+    }))
+    leaderboard.value = (lbRes as unknown as (NearbyUser & { score: number })[]).map(u => ({
+      ...u,
+      tags: normalizeTags(u.tags),
+      distance: u.distance == null ? 0 : Number(u.distance),
+    }))
   } finally {
     loading.value = false
   }

@@ -21,6 +21,7 @@ public class User {
     private Integer age;
     private Integer gender; // 0:保密, 1:男, 2:女
     private String tags;
+    private String bio;
 
     private Double longitude;
     private Double latitude;

@@ -42,6 +42,7 @@ public class UserService {
             if (user.getNickname() != null) existing.setNickname(user.getNickname());
             if (user.getAvatar() != null) existing.setAvatar(user.getAvatar());
             if (user.getTags() != null) existing.setTags(user.getTags());
+            if (user.getBio() != null) existing.setBio(user.getBio());
             if (user.getAge() != null) existing.setAge(user.getAge());
             if (user.getGender() != null) existing.setGender(user.getGender());
             return userRepository.save(existing);
@@ -55,6 +56,7 @@ public class UserService {
             if (profile.getNickname() != null) user.setNickname(profile.getNickname());
             if (profile.getAvatar() != null) user.setAvatar(profile.getAvatar());
             if (profile.getTags() != null) user.setTags(profile.getTags());
+            if (profile.getBio() != null) user.setBio(profile.getBio());
             if (profile.getAge() != null) user.setAge(profile.getAge());
             if (profile.getGender() != null) user.setGender(profile.getGender());
             return userRepository.save(user);

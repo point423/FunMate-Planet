@@ -17,10 +17,10 @@
           <p class="ph-bio">{{ user.bio }}</p>
           <div class="ph-tags">
             <span
-              v-for="tag in user.tags"
-              :key="tag"
+                v-for="tag in displayTags"
+                :key="tag.value"
               class="tag-chip active"
-            >{{ tag }}</span>
+              ><span class="ph-tag-emoji">{{ tag.emoji }}</span>{{ tag.label }}</span>
           </div>
         </div>
 
@@ -40,7 +40,7 @@
           </div>
         </div>
 
-        <button class="btn-edit" @click="editVisible = true">Edit</button>
+        <button class="btn-edit" @click="openEditDialog">Edit</button>
       </div>
 
       <!-- Grid: journal + activities -->
@@ -121,6 +121,8 @@ import { useActivityStore } from '@/stores/activity'
 import { uploadImage } from '@/api/activity'
 import { updateProfile } from '@/api/user'  // ✅ 改为直接用 updateProfile
 import { formatDate } from '@/utils/format'
+import { getTagMeta } from '@/utils/tags'
+import type { Diary } from '@/types/diary'
 
 const router    = useRouter()
 const userStore = useUserStore()
@@ -129,6 +131,7 @@ const actStore  = useActivityStore()
 const placeholder = 'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=200&q=60'
 const editVisible = ref(false)
 const saving      = ref(false)
+const MAX_AVATAR_BYTES = 5 * 1024 * 1024 // 5MB
 
 // Shallow reactive copy of the user for display
 const user = computed(() => ({
@@ -141,25 +144,41 @@ const user = computed(() => ({
   ranking:    userStore.userInfo?.ranking    ?? '--',
 }))
 
+const displayTags = computed(() =>
+  user.value.tags.map((value) => ({
+    value,
+    label: getTagMeta(value).label,
+    emoji: getTagMeta(value).emoji,
+  }))
+)
+
 const editForm = reactive({
-  nickname: user.value.nickname,
-  bio:      user.value.bio,
-  tags:     [...user.value.tags],
+  nickname: '',
+  bio:      '',
+  tags:     [] as string[],
 })
 
+const openEditDialog = () => {
+  editForm.nickname = user.value.nickname
+  editForm.bio = user.value.bio
+  editForm.tags = [...user.value.tags]
+  editVisible.value = true
+}
+
 // Derived data from store
-const diaries    = computed(() => actStore.diaries.slice(0, 6))
-const activities = computed(() =>
-  actStore.diaries
+const diaries = computed<Diary[]>(() => (actStore.diaries ?? []).slice(0, 6))
+const activities = computed(() => {
+  const list = (actStore.diaries ?? []) as Diary[]
+  return list
     .slice(0, 5)
-    .map(d => ({
+    .map((d: Diary) => ({
       id:           d.id,
       icon:         '🌅',
       name:         d.title,
       date:         formatDate(d.createdAt),
-      participants: d.participants.map(p => p.avatar),
+      participants: d.participants.map((p: Diary['participants'][number]) => p.avatar),
     }))
-)
+})
 
 // ── Actions ──────────────────────────────────────────────────────
 const saveProfile = async () => {
@@ -175,8 +194,21 @@ const saveProfile = async () => {
 const onAvatarChange = async (e: Event) => {
   const file = (e.target as HTMLInputElement).files?.[0]
   if (!file) return
+  if (file.size > MAX_AVATAR_BYTES) {
+    ElMessage.error('Image too large. Max size is 5MB.')
+    return
+  }
   try {
-    const url = await uploadImage(file) as string
+    const uploadResult = await uploadImage(file)
+    const url =
+      typeof uploadResult === 'string'
+        ? uploadResult
+        : (uploadResult as { url?: string; data?: { url?: string } }).url
+          ?? (uploadResult as { data?: { url?: string } }).data?.url
+    if (!url) {
+      ElMessage.error('Upload failed: invalid image URL')
+      return
+    }
     await updateProfile({ avatar: url })  // ✅ 改为通用 updateProfile
     await userStore.fetchUserInfo()
     ElMessage.success('Avatar updated!')
@@ -224,6 +256,7 @@ onMounted(() => {
 .ph-name  { font-family: var(--font-display); font-size: 26px; margin-bottom: 6px; }
 .ph-bio   { font-size: 13px; color: var(--color-text-secondary); margin-bottom: 12px; line-height: 1.55; }
 .ph-tags  { display: flex; gap: 7px; flex-wrap: wrap; }
+.ph-tag-emoji { margin-right: 6px; }
 
 .ph-stats { display: flex; gap: 0; flex-shrink: 0; }
 .ph-stat  { text-align: center; padding: 0 24px; border-left: 1px solid var(--color-border-dim); }
@@ -264,4 +297,56 @@ onMounted(() => {
 .act-av  { width: 20px; height: 20px; border-radius: 50%; object-fit: cover; border: 1.5px solid #000; margin-left: -5px; }
 .act-av:first-child { margin-left: 0; }
 .act-date { font-size: 12px; color: var(--color-text-secondary); flex-shrink: 0; }
+
+/* Edit dialog dark theme */
+:deep(.el-dialog) {
+  background-color: #1a1a1a !important;
+}
+:deep(.el-dialog__header) {
+  background-color: #1a1a1a;
+  border-bottom: 1px solid var(--color-border-dim);
+}
+:deep(.el-dialog__title) {
+  color: #fff;
+}
+:deep(.el-dialog__close) {
+  color: var(--color-text-secondary);
+}
+:deep(.el-dialog__body) {
+  background-color: #1a1a1a;
+  color: #fff;
+}
+:deep(.el-dialog__footer) {
+  background-color: #1a1a1a;
+  border-top: 1px solid var(--color-border-dim);
+}
+:deep(.el-form-item__label) {
+  color: #fff;
+}
+:deep(.el-input__wrapper) {
+  background-color: #2a2a2a !important;
+  border-color: var(--color-border-dim);
+}
+:deep(.el-input__inner) {
+  background-color: #2a2a2a;
+  color: #fff;
+}
+:deep(.el-textarea__inner) {
+  background-color: #2a2a2a !important;
+  color: #fff;
+  border-color: var(--color-border-dim);
+}
+:deep(.el-dialog__footer .el-button--primary) {
+  background-color: var(--color-green);
+  border-color: var(--color-green);
+  color: #111;
+  font-weight: 700;
+  transition: all 0.15s;
+}
+:deep(.el-dialog__footer .el-button--primary:hover),
+:deep(.el-dialog__footer .el-button--primary:focus) {
+  background-color: #111;
+  border-color: #111;
+  color: var(--color-green);
+}
 </style>

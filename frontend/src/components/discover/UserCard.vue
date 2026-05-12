@@ -1,5 +1,5 @@
 <template>
-  <div class="user-card" @click="emit('click', user)">
+  <div class="user-card" @click="emit('select', user)">
     <div class="uc-top">
       <img :src="user.avatar" class="uc-avatar" :alt="user.nickname">
       <div class="uc-meta">
@@ -11,7 +11,7 @@
     </div>
     <p class="uc-bio">{{ user.bio }}</p>
     <div class="uc-tags">
-      <span v-for="tag in user.tags.slice(0,3)" :key="tag" class="tag-chip active">{{ tag }}</span>
+      <span v-for="tag in displayTags" :key="tag" class="tag-chip active">{{ tag }}</span>
     </div>
     <div class="uc-footer">
       <span class="uc-score">{{ user.activities }} activities · {{ formatScore(user.score) }}</span>
@@ -21,14 +21,22 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import type { NearbyUser } from '@/types/user'
 import { formatDistance, formatScore } from '@/utils/format'
 
-defineProps<{ user: NearbyUser }>()
+const props = defineProps<{ user: NearbyUser }>()
 const emit = defineEmits<{
-  (e: 'click', u: NearbyUser): void
+  (e: 'select', u: NearbyUser): void
   (e: 'detail', u: NearbyUser): void
 }>()
+
+const displayTags = computed(() => {
+  const tags = props.user.tags
+  if (Array.isArray(tags)) return tags.slice(0, 3)
+  if (typeof tags === 'string') return tags.split(/[，,]/).map(tag => tag.trim()).filter(Boolean).slice(0, 3)
+  return []
+})
 </script>
 
 <style scoped>
