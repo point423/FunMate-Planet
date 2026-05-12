@@ -28,6 +28,11 @@
 - **危害**：虽然是哈希，但增加了被破解风险。
 - **修复建议**：返回统一的成功消息或脱敏对象。
 
+### 5. Token 持久化到 `localStorage`（Medium）
+- **位置**：`frontend/src/stores/user.ts`
+- **问题**：登录后将 `token` 保存到 `localStorage`（`localStorage.setItem('token', ...)`），并在初始化时读取。
+- **危害**：`localStorage` 可被页面脚本读取，若存在 XSS 攻击会导致令牌泄露并被滥用。
+
 ---
 
 ## 二、 核心漏洞修复
@@ -43,7 +48,12 @@ if (!id.equals(currentUserId)) {
 }
 ```
 
+### 修复 3：Token 持久化
+移除对 `localStorage` 的读写，改为仅在内存（Pinia state）保存 `token`；
+
 ---
 
 ## 三、 结论
 项目已通过 AI 安全审查。修复了最危急的硬编码密钥和 IDOR 越权漏洞，并集成了 Gitleaks 自动化扫描防止未来密钥泄露。
+
+---
