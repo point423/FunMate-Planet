@@ -47,7 +47,7 @@
 
 ## PR 链接
 
-- PR：待提交
+- PR：https://github.com/point423/FunMate-Planet/pull/23
 
 ## 遇到的问题和解决
 
