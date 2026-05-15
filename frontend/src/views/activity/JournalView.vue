@@ -12,22 +12,26 @@
           @click="selectJournal(j.id)"
         >
           <div class="jc-img">
-            <img :src="j.coverImage" :alt="j.title">
+            <!-- 兼容 coverImage 或 images 字段，并提供兜底图 -->
+            <img :src="j.coverImage || (j.images ? (Array.isArray(j.images) ? j.images[0] : j.images) : '') || 'https://images.unsplash.com/photo-1517486808906-6ca8b3f04846?q=80&w=400'" :alt="j.title">
           </div>
           <div class="jc-body">
-            <div class="jc-title">{{ j.title }}</div>
+            <!-- 兼容后端 content 字段作为标题 -->
+            <div class="jc-title">{{ j.title || j.content || 'Untitled Journal' }}</div>
             <div class="jc-footer">
               <div class="jc-avs">
+                <!-- 增加空值保护 -->
                 <div
-                  v-for="p in j.participants.slice(0, 3)"
+                  v-for="p in (j.participants || []).slice(0, 3)"
                   :key="p.userId"
                   class="jc-av"
                 >
                   <img :src="p.avatar" :alt="p.nickname">
                 </div>
               </div>
+              <!-- 兼容后端 createTime 字段 -->
               <span class="jc-date" :class="{ green: activeId === j.id }">
-                {{ formatDate(j.createdAt) }}
+                {{ formatDate(j.createdAt || j.createTime) }}
               </span>
             </div>
           </div>
@@ -61,7 +65,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import DiaryEditor from '@/components/activity/DiaryEditor.vue'
 import { useActivityStore } from '@/stores/activity'
@@ -69,7 +73,9 @@ import { formatDate } from '@/utils/format'
 
 const router       = useRouter()
 const actStore     = useActivityStore()
-const diaries      = ref(actStore.diaries)
+
+// 使用 computed 保证 Store 数据变化时 UI 自动更新
+const diaries      = computed(() => actStore.diaries)
 const activeId     = ref<number | null>(null)
 const showEditor   = ref(false)
 
@@ -78,9 +84,9 @@ const selectJournal = (id: number) => {
   router.push(`/activity/journal/${id}`)
 }
 
-const onSaved = () => { actStore.fetchDiaries().then(() => { diaries.value = actStore.diaries }) }
+const onSaved = () => { actStore.fetchDiaries() }
 
-onMounted(() => { actStore.fetchDiaries().then(() => { diaries.value = actStore.diaries }) })
+onMounted(() => { actStore.fetchDiaries() })
 </script>
 
 <style scoped>
@@ -109,7 +115,7 @@ onMounted(() => { actStore.fetchDiaries().then(() => { diaries.value = actStore.
 .jc-img img { width: 100%; height: 100%; object-fit: cover; }
 
 .jc-body   { padding: 10px 12px; }
-.jc-title  { font-size: 14px; font-weight: 500; margin-bottom: 8px; }
+.jc-title  { font-size: 14px; font-weight: 500; margin-bottom: 8px; color: var(--color-text); }
 .jc-footer { display: flex; align-items: center; justify-content: space-between; }
 .jc-avs    { display: flex; }
 .jc-av     { width: 22px; height: 22px; border-radius: 50%; overflow: hidden; background: #555; border: 1.5px solid #000; margin-left: -5px; }

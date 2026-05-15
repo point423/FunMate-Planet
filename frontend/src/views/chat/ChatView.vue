@@ -14,7 +14,7 @@
               placeholder="Search partner here"
             >
           </div>
-          <button class="add-btn" @click="showToast('Add partner coming soon')">+</button>
+          <button class="add-btn" @click="openAddPartnerDialog">+</button>
         </div>
         <div class="sidebar-tabs">
           <button
@@ -79,7 +79,7 @@
     </aside>
 
     <!-- ── Middle: chat window ─────────────────── -->
-    <main class="chat-main">
+    <main class="chat-main" v-show="tab === 'partners'">
       <div class="chat-bg" />
 
       <template v-if="activePartner">
@@ -91,7 +91,12 @@
 
         <!-- Messages -->
         <div class="chat-msgs" ref="msgsEl">
-          <template v-for="(msg, i) in messages" :key="i">
+          <div
+            v-for="(msg, i) in messages"
+            :key="msg.id ?? i"
+            class="msg-item"
+            :class="msg.mine ? 'mine' : 'them'"
+          >
             <div v-if="msg.timestamp" class="msg-timestamp">{{ msg.timestamp }}</div>
             <div class="msg-row" :class="msg.mine ? 'me' : 'them'">
               <img
@@ -106,7 +111,7 @@
                 class="msg-avatar"
               >
             </div>
-          </template>
+          </div>
         </div>
 
         <!-- Input -->
@@ -118,7 +123,7 @@
             @keydown.enter="sendMessage"
           >
           <span class="emoji-btn">🐱</span>
-          <button class="more-btn" @click="showMoreMenu = !showMoreMenu">⊕</button>
+          <button type="button" class="more-btn" @click="showMoreMenu = !showMoreMenu">⊕</button>
           <!-- More menu -->
           <div v-if="showMoreMenu" class="more-menu">
             <div class="more-item" @click="handleMoreAction('activity')">🎯 Start activity</div>
@@ -136,7 +141,7 @@
     </main>
 
     <!-- ── Right panel ─────────────────────────── -->
-    <aside class="chat-right">
+    <aside class="chat-right" :class="{ 'expanded': tab === 'applications' }">
 
       <!-- Partners view: activity detail -->
       <template v-if="tab === 'partners'">
@@ -145,7 +150,7 @@
           <el-icon style="cursor:pointer"><MoreFilled /></el-icon>
         </div>
         <div class="cr-calendar">
-          <ActivityCalendar :event-days="[9, 13, 21]" />
+          <ActivityCalendar :event-days="calendarEventDays" />
         </div>
         <div class="cr-activity" v-if="currentActivity">
           <div class="act-thumb">
@@ -157,12 +162,19 @@
           </div>
           <h4 class="cr-section-title">Status</h4>
           <div class="cr-status-rows">
+            <div class="cr-row">Status: {{ currentActivity.status }}</div>
             <div class="cr-row">Name：{{ currentActivity.name }}</div>
             <div class="cr-row">Location: {{ currentActivity.location }}</div>
-            <div class="cr-row">Participants: {{ currentActivity.participants }}</div>
+            <div class="cr-row">Participants: {{ currentActivity.participants.join(', ') }}</div>
             <div class="cr-row">Start Time: {{ currentActivity.startTime }}</div>
           </div>
-          <button class="btn-completed" @click="markCompleted">Completed! ✓</button>
+          <button
+            class="btn-completed"
+            :disabled="currentActivity.status === 'completed'"
+            @click="markCompleted"
+          >
+            {{ currentActivity.status === 'completed' ? 'Completed ✓' : 'Completed! ✓' }}
+          </button>
         </div>
         <div v-else class="cr-empty">No active activity</div>
       </template>
@@ -239,21 +251,118 @@
 
       <div v-else class="cr-empty">Select an application to review</div>
     </aside>
+
+    <el-dialog
+      v-model="startActivityVisible"
+      width="520px"
+      :show-close="false"
+      class="activity-dialog"
+      align-center
+    >
+      <div class="activity-form-card">
+        <button type="button" class="activity-close" @click="startActivityVisible = false">×</button>
+        <div class="activity-form-title">Start activity</div>
+        <p class="activity-form-subtitle">Fill in the details to create a shared activity record.</p>
+
+        <div class="activity-form-grid">
+          <label class="activity-field">
+            <span>Name</span>
+            <input v-model="activityDraft.name" class="activity-input" placeholder="e.g. Sunset ride" />
+          </label>
+          <label class="activity-field">
+            <span>Location</span>
+            <input v-model="activityDraft.location" class="activity-input" placeholder="e.g. West Lake" />
+          </label>
+          <label class="activity-field activity-field-full">
+            <span>Participants</span>
+            <input v-model="activityDraft.participants" class="activity-input" placeholder="e.g. Rose, Alex, Mia" />
+          </label>
+          <label class="activity-field">
+            <span>Start Time</span>
+            <input v-model="activityDraft.startTime" type="datetime-local" class="activity-input" />
+          </label>
+          <label class="activity-field">
+            <span>Status</span>
+            <select v-model="activityDraft.status" class="activity-input">
+              <option value="planned">planned</option>
+              <option value="ongoing">ongoing</option>
+              <option value="completed">completed</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="activity-form-actions">
+          <button type="button" class="btn-outline" @click="startActivityVisible = false">Cancel</button>
+          <button type="button" class="btn-green" @click="confirmStartActivity">Start activity</button>
+        </div>
+      </div>
+    </el-dialog>
+
+    <el-dialog
+      v-model="addPartnerVisible"
+      width="460px"
+      :show-close="false"
+      class="activity-dialog"
+      align-center
+    >
+      <div class="activity-form-card">
+        <button type="button" class="activity-close" @click="addPartnerVisible = false">×</button>
+        <div class="activity-form-title">Add partner</div>
+        <p class="activity-form-subtitle">Enter a username to search and add a new partner.</p>
+
+        <div class="activity-form-grid" style="grid-template-columns: 1fr auto; align-items: end;">
+          <label class="activity-field activity-field-full" style="grid-column: 1 / span 1;">
+            <span>Username</span>
+            <input
+              v-model="partnerSearchQ"
+              class="activity-input"
+              placeholder="e.g. rose"
+              @keydown.enter="searchPartnerByUsername"
+            />
+          </label>
+          <button type="button" class="btn-green" style="height: 44px; min-width: 96px;" @click="searchPartnerByUsername">Search</button>
+        </div>
+
+        <div v-if="partnerSearchLoading" class="cr-empty" style="min-height: 120px;">Searching...</div>
+
+        <div v-else-if="searchedPartner" class="found-user-card" @click="addSearchedPartner">
+          <img :src="searchedPartner.avatar" class="found-user-avatar" :alt="searchedPartner.nickname">
+          <div class="found-user-info">
+            <div class="found-user-name">{{ searchedPartner.nickname }}</div>
+            <div class="found-user-meta">@{{ searchedPartner.username }} · 📍 {{ formatDistance(searchedPartner.distance) }}</div>
+            <div class="found-user-bio">{{ searchedPartner.bio }}</div>
+          </div>
+          <button type="button" class="btn-outline" @click.stop="addSearchedPartner">Add</button>
+        </div>
+
+        <div v-else-if="partnerSearchDone" class="cr-empty" style="min-height: 120px;">
+          No user found.
+        </div>
+
+        <div class="activity-form-actions">
+          <button type="button" class="btn-outline" @click="addPartnerVisible = false">Close</button>
+        </div>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, nextTick, onMounted } from 'vue'
+import { ref, computed, nextTick, onMounted, onBeforeUnmount, watch, reactive } from 'vue'
 import { Search, MoreFilled } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import ActivityCalendar from '@/components/activity/ActivityCalendar.vue'
 import { 
   getFriends, 
   getFriendApplications, 
-  handleFriendRequest  // ✅ 改为 handleFriendRequest
+  handleFriendRequest,  // ✅ 改为 handleFriendRequest
+  getUserById,
+  getUserByUsername,
+  sendFriendRequest,
 } from '@/api/user'
+import { getChatMessages, sendChatMessage } from '@/api/chat'
 import { formatDistance } from '@/utils/format'
-import type { FriendApplication } from '@/types/user'
+import type { NearbyUser } from '@/types/user'
 import { useUserStore } from '@/stores/user'
 
 const userStore = useUserStore()
@@ -266,6 +375,12 @@ const activeId    = ref<number | null>(null)
 const inputText   = ref('')
 const showMoreMenu= ref(false)
 const msgsEl      = ref<HTMLElement | null>(null)
+const startActivityVisible = ref(false)
+const addPartnerVisible = ref(false)
+const partnerSearchQ = ref('')
+const searchedPartner = ref<NearbyUser | null>(null)
+const partnerSearchLoading = ref(false)
+const partnerSearchDone = ref(false)
 
 // Partner shape used in sidebar
 interface PartnerItem {
@@ -273,11 +388,19 @@ interface PartnerItem {
   lastMsg: string; lastMsgDate: string; distance: number; score: number
 }
 const partners     = ref<PartnerItem[]>([])
-const applications = ref<FriendApplication[]>([])
+interface ApplicationItem {
+  id: number
+  fromUser: NearbyUser
+  toUserId: number
+  status: 'pending' | 'accepted' | 'declined'
+  createdAt: string
+}
+const applications = ref<ApplicationItem[]>([])
 
 // Messages map: partnerId → message array
-interface MsgItem { content: string; mine: boolean; timestamp?: string }
+interface MsgItem { id?: string; content: string; mine: boolean; timestamp?: string }
 const msgMap = ref<Record<number, MsgItem[]>>({})
+let messagePollTimer: number | null = null
 
 const activePartner = computed(() =>
   partners.value.find(p => p.id === activeId.value) ?? null
@@ -286,7 +409,7 @@ const messages = computed(() =>
   activeId.value ? (msgMap.value[activeId.value] ?? []) : []
 )
 
-const activeApplication = ref<FriendApplication | null>(null)
+const activeApplication = ref<ApplicationItem | null>(null)
 
 const filteredPartners = computed(() =>
   partners.value.filter(p =>
@@ -296,57 +419,191 @@ const filteredPartners = computed(() =>
 
 // ── Current activity shown in right panel ────────────────────────
 interface ActivitySummary {
-  name: string; location: string; participants: string
-  startTime: string; date: string; coverImg: string
+  name: string
+  location: string
+  participants: string[]
+  startDate: string
+  startTime: string
+  date: string
+  coverImg: string
+  status: 'planned' | 'ongoing' | 'completed'
 }
 const currentActivity = ref<ActivitySummary | null>({
   name: 'the Green Park walk',
   location: 'Hang Zhou',
-  participants: 'Julio, Jose',
+  participants: ['Julio', 'Jose'],
+  startDate: '2026-09-09T10:00:00.000Z',
   startTime: 'Tuesday 9, 10:00am',
   date: '09/09/2026',
   coverImg: 'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=400&q=70',
+  status: 'ongoing',
+})
+
+const activityDraft = reactive({
+  name: '',
+  location: '',
+  participants: '',
+  startTime: '',
+  status: 'planned' as 'planned' | 'ongoing' | 'completed',
+})
+
+const resetActivityDraft = () => {
+  activityDraft.name = ''
+  activityDraft.location = ''
+  activityDraft.participants = ''
+  activityDraft.startTime = ''
+  activityDraft.status = 'planned'
+}
+
+const calendarEventDays = computed(() => {
+  const value = currentActivity.value?.startDate
+  if (!value) return [9, 13, 21]
+  const parsed = new Date(value)
+  return Number.isNaN(parsed.getTime()) ? [9, 13, 21] : [parsed.getDate()]
 })
 
 // ── Load data ────────────────────────────────────────────────────
 const loadPartners = async () => {
   try {
-    const data = await getFriends() as PartnerItem[]
+    const data = await getFriends() as unknown as PartnerItem[]
     partners.value = data
   } catch { /* use empty */ }
 }
 
 const loadApplications = async () => {
   try {
-    const data = await getFriendApplications() as FriendApplication[]
-    applications.value = data
+    const data = await getFriendApplications() as {
+      incoming?: Array<{ id: number; senderId: number; receiverId: number; status?: string; createTime?: string }>
+      outgoing?: Array<{ id: number; senderId: number; receiverId: number; status?: string; createTime?: string }>
+    } | ApplicationItem[]
+
+    if (Array.isArray(data)) {
+      applications.value = data.filter(item => !!item?.fromUser && item.status === 'pending')
+      return
+    }
+
+    const incoming = (data?.incoming ?? []).filter(req => (req.status ?? 'pending') === 'pending')
+
+    const mapped = await Promise.all(incoming.map(async (req) => {
+      let rawUser: Record<string, unknown> = {}
+      try {
+        rawUser = await getUserById(req.senderId) as unknown as Record<string, unknown>
+      } catch {
+        rawUser = {}
+      }
+
+      const tagsRaw = rawUser?.tags
+      const tags = Array.isArray(tagsRaw)
+        ? tagsRaw.map(v => String(v)).filter(Boolean)
+        : typeof tagsRaw === 'string'
+          ? tagsRaw.split(',').map(v => v.trim()).filter(Boolean)
+          : []
+
+      const fromUser: NearbyUser = {
+        id: Number(rawUser?.id ?? req.senderId),
+        username: String(rawUser?.username ?? ''),
+        nickname: String(rawUser?.nickname ?? `User ${req.senderId}`),
+        avatar: String(rawUser?.avatar ?? '/default-avatar.png'),
+        bio: String(rawUser?.bio ?? ''),
+        tags,
+        activities: Number(rawUser?.activities ?? 0),
+        score: Number(rawUser?.score ?? rawUser?.averageScore ?? 0),
+        ranking: Number(rawUser?.ranking ?? 0),
+        longitude: rawUser?.longitude as number | undefined,
+        latitude: rawUser?.latitude as number | undefined,
+        createdAt: String(rawUser?.createdAt ?? ''),
+        distance: Number(rawUser?.distance ?? 0),
+        publicJournals: Array.isArray(rawUser?.publicJournals) ? (rawUser.publicJournals as NearbyUser['publicJournals']) : [],
+        recentActivities: Array.isArray(rawUser?.recentActivities) ? (rawUser.recentActivities as NearbyUser['recentActivities']) : [],
+      }
+
+      return {
+        id: req.id,
+        fromUser,
+        toUserId: req.receiverId,
+        status: (req.status ?? 'pending') as 'pending' | 'accepted' | 'declined',
+        createdAt: req.createTime ?? '',
+      } as ApplicationItem
+    }))
+
+    applications.value = mapped
   } catch { /* use empty */ }
+}
+
+const formatMsgTime = (value: unknown) => {
+  if (!value) return ''
+  const d = new Date(String(value))
+  if (Number.isNaN(d.getTime())) return ''
+  return d.toLocaleString()
+}
+
+const loadMessages = async (partnerId: number) => {
+  try {
+    const data = await getChatMessages(partnerId, 1, 100)
+    const list = Array.isArray(data?.list) ? data.list : []
+
+    msgMap.value[partnerId] = list
+      .slice()
+      .sort((a, b) => new Date(a.createTime).getTime() - new Date(b.createTime).getTime())
+      .map(item => ({
+        id: item.id,
+        content: String(item.content ?? ''),
+        mine: Number(item.senderId) === Number(userStore.userInfo?.id),
+        timestamp: formatMsgTime(item.createTime),
+      }))
+
+    await nextTick()
+    if (msgsEl.value) msgsEl.value.scrollTop = msgsEl.value.scrollHeight
+  } catch {
+    if (!msgMap.value[partnerId]) msgMap.value[partnerId] = []
+  }
+}
+
+const stopMessagePolling = () => {
+  if (messagePollTimer !== null) {
+    window.clearInterval(messagePollTimer)
+    messagePollTimer = null
+  }
+}
+
+const startMessagePolling = (partnerId: number) => {
+  stopMessagePolling()
+  messagePollTimer = window.setInterval(() => {
+    if (tab.value === 'partners' && activeId.value === partnerId) {
+      loadMessages(partnerId)
+    }
+  }, 3000)
 }
 
 // ── Actions ──────────────────────────────────────────────────────
 const selectPartner = (p: PartnerItem) => {
   activeId.value = p.id
   activeApplication.value = null
-  if (!msgMap.value[p.id]) msgMap.value[p.id] = []
-  nextTick(() => { if (msgsEl.value) msgsEl.value.scrollTop = msgsEl.value.scrollHeight })
+  loadMessages(p.id)
+  startMessagePolling(p.id)
 }
 
-const selectApplication = (a: FriendApplication) => {
+const selectApplication = (a: ApplicationItem) => {
   activeId.value = a.fromUser.id
   activeApplication.value = a
 }
 
-const sendMessage = () => {
+const sendMessage = async () => {
   const txt = inputText.value.trim()
   if (!txt || !activeId.value) return
-  if (!msgMap.value[activeId.value]) msgMap.value[activeId.value] = []
-  msgMap.value[activeId.value].push({ content: txt, mine: true })
-  inputText.value = ''
-  showMoreMenu.value = false
-  nextTick(() => { if (msgsEl.value) msgsEl.value.scrollTop = msgsEl.value.scrollHeight })
+
+  const targetId = activeId.value
+  try {
+    await sendChatMessage(targetId, txt)
+    inputText.value = ''
+    showMoreMenu.value = false
+    await loadMessages(targetId)
+  } catch {
+    ElMessage.error('Message send failed')
+  }
 }
 
-const acceptApplication = async (app: FriendApplication) => {
+const acceptApplication = async (app: ApplicationItem) => {
   try {
     await handleFriendRequest(app.id, true)  // ✅ 改为统一接口
     ElMessage.success(`${app.fromUser.nickname} is now your partner!`)
@@ -356,7 +613,7 @@ const acceptApplication = async (app: FriendApplication) => {
   } catch { /* */ }
 }
 
-const declineApplication = async (app: FriendApplication) => {
+const declineApplication = async (app: ApplicationItem) => {
   try {
     await handleFriendRequest(app.id, false)  // ✅ 改为统一接口
     ElMessage.info('Application declined')
@@ -366,20 +623,163 @@ const declineApplication = async (app: FriendApplication) => {
 }
 
 const markCompleted = () => {
+  if (!currentActivity.value) return
+  currentActivity.value = {
+    ...currentActivity.value,
+    status: 'completed',
+  }
   ElMessage.success('Activity marked as completed!')
-  currentActivity.value = null
 }
 
 const handleMoreAction = (action: string) => {
   showMoreMenu.value = false
-  if (action === 'activity') ElMessage.info('Start activity feature coming soon')
+  if (action === 'activity') {
+    if (activePartner.value) {
+      activityDraft.name = `${activePartner.value.nickname}'s activity`
+      activityDraft.location = 'TBD'
+      activityDraft.participants = activePartner.value.nickname
+      activityDraft.status = 'planned'
+    }
+    startActivityVisible.value = true
+  }
   else if (action === 'location') ElMessage.info('Location sharing coming soon')
   else ElMessage.info('Shared journal coming soon')
 }
 
-const showToast = (msg: string) => ElMessage.info(msg)
+const confirmStartActivity = () => {
+  const name = activityDraft.name.trim()
+  const location = activityDraft.location.trim()
+  const participants = activityDraft.participants
+    .split(',')
+    .map(item => item.trim())
+    .filter(Boolean)
+
+  if (!name || !location || participants.length === 0 || !activityDraft.startTime) {
+    ElMessage.warning('Please fill in Name, Location, Participants, and Start Time')
+    return
+  }
+
+  const startedAt = new Date(activityDraft.startTime)
+  if (Number.isNaN(startedAt.getTime())) {
+    ElMessage.warning('Please choose a valid Start Time')
+    return
+  }
+
+  currentActivity.value = {
+    name,
+    location,
+    participants,
+    startDate: startedAt.toISOString(),
+    startTime: startedAt.toLocaleString(),
+    date: `${startedAt.getMonth() + 1}/${startedAt.getDate()}/${startedAt.getFullYear()}`,
+    coverImg: activePartner.value?.avatar || currentActivity.value?.coverImg || 'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=400&q=70',
+    status: activityDraft.status,
+  }
+
+  startActivityVisible.value = false
+  resetActivityDraft()
+  ElMessage.success('Activity started')
+}
+
+const openAddPartnerDialog = () => {
+  partnerSearchQ.value = ''
+  searchedPartner.value = null
+  partnerSearchDone.value = false
+  addPartnerVisible.value = true
+}
+
+const normalizeUserShape = (raw: Record<string, unknown>): NearbyUser => {
+  const tagsRaw = raw?.tags
+  const tags = Array.isArray(tagsRaw)
+    ? tagsRaw.map(v => String(v)).filter(Boolean)
+    : typeof tagsRaw === 'string'
+      ? tagsRaw.split(',').map(v => v.trim()).filter(Boolean)
+      : []
+
+  return {
+    id: Number(raw?.id ?? 0),
+    username: String(raw?.username ?? ''),
+    nickname: String(raw?.nickname ?? ''),
+    avatar: String(raw?.avatar ?? '/default-avatar.png'),
+    bio: String(raw?.bio ?? ''),
+    tags,
+    activities: Number(raw?.activities ?? 0),
+    score: Number(raw?.score ?? raw?.averageScore ?? 0),
+    ranking: Number(raw?.ranking ?? 0),
+    longitude: raw?.longitude as number | undefined,
+    latitude: raw?.latitude as number | undefined,
+    createdAt: String(raw?.createdAt ?? ''),
+    distance: Number(raw?.distance ?? 0),
+    publicJournals: Array.isArray(raw?.publicJournals) ? (raw.publicJournals as NearbyUser['publicJournals']) : [],
+    recentActivities: Array.isArray(raw?.recentActivities) ? (raw.recentActivities as NearbyUser['recentActivities']) : [],
+  }
+}
+
+const searchPartnerByUsername = async () => {
+  const username = partnerSearchQ.value.trim()
+  if (!username) {
+    ElMessage.warning('Please enter a username')
+    return
+  }
+
+  partnerSearchLoading.value = true
+  partnerSearchDone.value = false
+  searchedPartner.value = null
+  try {
+    const raw = await getUserByUsername(username) as unknown as Record<string, unknown>
+    const candidate = normalizeUserShape(raw)
+
+    if (!candidate.id) {
+      partnerSearchDone.value = true
+      return
+    }
+    if (candidate.id === userStore.userInfo?.id) {
+      ElMessage.warning('You cannot add yourself')
+      return
+    }
+
+    searchedPartner.value = candidate
+    partnerSearchDone.value = true
+  } catch {
+    partnerSearchDone.value = true
+    searchedPartner.value = null
+  } finally {
+    partnerSearchLoading.value = false
+  }
+}
+
+const addSearchedPartner = async () => {
+  if (!searchedPartner.value) return
+  if (partners.value.some(p => p.id === searchedPartner.value?.id)) {
+    ElMessage.info('This user is already in your partner list')
+    return
+  }
+
+  try {
+    await sendFriendRequest(searchedPartner.value.id)
+    ElMessage.success(`Friend request sent to ${searchedPartner.value.nickname}`)
+    addPartnerVisible.value = false
+  } catch {
+    // handled by interceptor
+  }
+}
 
 onMounted(() => { loadPartners(); loadApplications() })
+
+watch(tab, (nextTab) => {
+  if (nextTab !== 'partners') {
+    stopMessagePolling()
+    return
+  }
+  if (activeId.value) {
+    loadMessages(activeId.value)
+    startMessagePolling(activeId.value)
+  }
+})
+
+onBeforeUnmount(() => {
+  stopMessagePolling()
+})
 </script>
 
 <style scoped>
@@ -487,6 +887,13 @@ onMounted(() => { loadPartners(); loadApplications() })
   display: flex; flex-direction: column; gap: 16px;
   position: relative; z-index: 2;
 }
+.msg-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.msg-item.mine { align-items: flex-end; }
+.msg-item.them { align-items: flex-start; }
 .msg-timestamp {
   text-align: center; font-size: 11px;
   color: rgba(255,255,255,.45); background: rgba(0,0,0,.4);
@@ -617,4 +1024,137 @@ onMounted(() => { loadPartners(); loadApplications() })
 .app-action-btns { display: flex; gap: 10px; padding: 14px 16px; border-top: 0.5px solid var(--color-border-dim); flex-shrink: 0; }
 .btn-accept  { flex: 1; padding: 10px; border-radius: var(--radius-md); background: var(--color-green); color: var(--color-black); font-size: 13px; font-weight: 700; border: none; cursor: pointer; }
 .btn-decline { flex: 1; padding: 10px; border-radius: var(--radius-md); background: var(--color-white); color: var(--color-black); font-size: 13px; font-weight: 600; border: none; cursor: pointer; }
+
+:deep(.activity-dialog .el-dialog) {
+  background: #0a0a0a !important;
+  border: 1px solid #2a2a2a !important;
+  border-radius: var(--radius-xl);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.65);
+}
+:deep(.activity-dialog .el-dialog__header) { display: none; }
+:deep(.activity-dialog .el-dialog__body) {
+  padding: 0;
+  background-color: #0a0a0a !important;
+}
+
+.activity-form-card {
+  position: relative;
+  padding: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  color: #f5f5f5;
+  background: #0a0a0a;
+}
+.activity-close {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  background: none;
+  border: none;
+  color: var(--color-text-secondary);
+  font-size: 22px;
+  cursor: pointer;
+  line-height: 1;
+}
+.activity-form-title {
+  font-family: var(--font-display);
+  font-size: 22px;
+}
+.activity-form-subtitle {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+.activity-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.activity-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+.activity-field-full { grid-column: 1 / -1; }
+.activity-input {
+  width: 100%;
+  padding: 11px 12px;
+  border-radius: 12px;
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  color: var(--color-white);
+  font-size: 13px;
+  outline: none;
+}
+.activity-input:focus {
+  border-color: var(--color-green-border);
+  box-shadow: 0 0 0 2px rgba(144, 255, 140, 0.12);
+}
+.activity-form-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 4px;
+}
+.found-user-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-1);
+  cursor: pointer;
+  transition: background .15s, border-color .15s, transform .15s;
+}
+.found-user-card:hover {
+  background: var(--color-surface-2);
+  border-color: var(--color-green-border);
+  transform: translateY(-1px);
+}
+.found-user-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  border: 1.5px solid var(--color-border);
+}
+.found-user-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.found-user-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--color-white);
+}
+.found-user-meta {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+}
+.found-user-bio {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.btn-completed:disabled {
+  opacity: 0.65;
+  cursor: default;
+}
+
+/* Application mode: expand chat-right to fill view */
+.chat-right.expanded {
+  width: 100%;
+  flex: 1;
+}
 </style>

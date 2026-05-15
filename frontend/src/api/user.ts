@@ -36,8 +36,17 @@ import type { UserInfo } from '@/types/user'
 export const getUserById = (id: number) =>
   request.get<UserInfo>(`/users/${id}`)
 
-export const updateProfile = (data: Partial<UserInfo>) =>
-  request.put('/users/me', data)
+export const getUserByUsername = (username: string) =>
+  request.get<UserInfo>('/users/by-username', { params: { username } })
+
+export const updateProfile = (data: Partial<UserInfo>) => {
+  const payload = {
+    ...data,
+    tags: Array.isArray(data.tags) ? data.tags.join(',') : data.tags,
+  }
+
+  return request.put('/users/me', payload)
+}
 
 // ✅ 改为：发送 tags 作为逗号分隔字符串
 export const updateTags = (tags: string[]) =>

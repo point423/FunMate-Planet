@@ -20,6 +20,12 @@ spring:
         format_sql: true  # 格式化 SQL
     open-in-view: false   # 关闭 OSIV，推荐设置
 
+  # 文件上传（multipart）限制：增大上传上限以支持头像等图片
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+
   # Redis 配置
   data:
     redis:

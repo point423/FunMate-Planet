@@ -65,9 +65,7 @@ export const getDiaryDetail = (id: number) =>
   request.get(`/diaries/${id}`)
 
 export const createDiary = (data: FormData) =>
-  request.post('/diaries', data, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  })
+  request.post('/diaries', data)
 
 // ✅ 移除：/diaries/{id}/entries 此接口后端未实现，改用创建新日记
 // export const addDiaryEntry = (diaryId: number, content: string) =>
@@ -76,7 +74,5 @@ export const createDiary = (data: FormData) =>
 export const uploadImage = (file: File) => {
   const form = new FormData()
   form.append('file', file)
-  return request.post<string>('/upload/image', form, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  })
+  return request.post<{ url: string }>('/upload/image', form)
 }

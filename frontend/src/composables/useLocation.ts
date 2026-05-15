@@ -8,9 +8,10 @@ export function useLocation() {
   const lng = ref<number | null>(null)
   const error = ref<string | null>(null)
 
-  const updateLocation = () => {
+  const updateLocation = () => new Promise<void>((resolve) => {
     if (!navigator.geolocation) {
       error.value = 'Geolocation not supported'
+      resolve()
       return
     }
     navigator.geolocation.getCurrentPosition(
@@ -23,10 +24,14 @@ export function useLocation() {
         localStorage.setItem('user_longitude', lng.value.toString())
 
         await reportLocation({ latitude: lat.value, longitude: lng.value })
+        resolve()
       },
-      (err) => { error.value = err.message },
+      (err) => {
+        error.value = err.message
+        resolve()
+      },
     )
-  }
+  })
 
   return { lat, lng, error, updateLocation }
 }

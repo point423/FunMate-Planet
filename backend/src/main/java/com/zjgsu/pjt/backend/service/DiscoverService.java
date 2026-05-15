@@ -28,6 +28,10 @@ public class DiscoverService {
     private static final String GEO_KEY = "user:location";
 
     public List<User> getNearbyUsers(Double longitude, Double latitude, Double radius) {
+        // 增加非空校验，如果坐标为空，返回空列表或按其他逻辑处理
+        if (longitude == null || latitude == null) {
+            return new ArrayList<>();
+        }
         try {
             Point point = new Point(longitude, latitude);
             Distance distance = new Distance(radius, RedisGeoCommands.DistanceUnit.KILOMETERS);
@@ -64,6 +68,7 @@ public class DiscoverService {
     }
 
     public void updateUserLocation(Long userId, Double longitude, Double latitude) {
+        if (longitude == null || latitude == null) return;
         try {
             stringRedisTemplate.opsForGeo().add(GEO_KEY,
                 new Point(longitude, latitude),

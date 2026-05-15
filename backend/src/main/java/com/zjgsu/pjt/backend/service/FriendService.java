@@ -35,6 +35,8 @@ public class FriendService {
 
         List<Long> friendIds = friendships.stream()
             .map(Friendship::getFriendId)
+            .filter(friendId -> friendshipRepository.findByUserIdAndFriendId(friendId, userId) != null)
+            .distinct()
             .collect(Collectors.toList());
 
         return userRepository.findAllById(friendIds);

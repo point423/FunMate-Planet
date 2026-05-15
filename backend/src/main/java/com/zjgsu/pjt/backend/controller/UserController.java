@@ -39,17 +39,28 @@ public class UserController {
         return updated != null ? Result.success(updated) : Result.error(404, "用户不存在");
     }
 
-    @GetMapping("/{id}")
+    @GetMapping("/{id:\\d+}")
     public Result<User> getUserById(@PathVariable Long id) {
         User user = userService.findById(id);
         return user != null ? Result.success(user) : Result.error(404, "用户不存在");
+    }
+
+    @GetMapping("/by-username")
+    public Result<User> searchByUsername(@RequestParam String username) {
+        if (username == null || username.trim().isEmpty()) {
+            return Result.error(400, "用户名不能为空");
+        }
+
+        return userService.findByUsername(username.trim())
+            .map(Result::success)
+            .orElseGet(() -> Result.error(404, "用户不存在"));
     }
 
     /**
      * 安全修复：防止水平越权 (IDOR)
      * 只有用户本人可以修改自己的数据
      */
-    @PutMapping("/{id}")
+    @PutMapping("/{id:\\d+}")
     public Result<User> updateUser(@PathVariable Long id, 
                                    @RequestBody User user,
                                    @RequestAttribute(value = "currentUserId", required = false) Long currentUserId) {
@@ -66,7 +77,7 @@ public class UserController {
      * 安全修复：防止水平越权 (IDOR)
      * 只有用户本人可以删除自己的账号
      */
-    @DeleteMapping("/{id}")
+    @DeleteMapping("/{id:\\d+}")
     public Result<String> deleteUser(@PathVariable Long id,
                                      @RequestAttribute(value = "currentUserId", required = false) Long currentUserId) {
         if (currentUserId == null) return Result.error(401, "未授权");
