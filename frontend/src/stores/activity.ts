@@ -11,8 +11,15 @@ export const useActivityStore = defineStore('activity', () => {
   const currentActivity = ref<Activity | null>(null)
 
   const fetchDiaries = async () => {
-    const result = await getMyDiaries()
-    diaries.value = Array.isArray(result) ? result : []
+    const result = await getMyDiaries() as any
+    // 后端返回的是分页对象，数据在 content 字段中
+    if (result && Array.isArray(result.content)) {
+      diaries.value = result.content
+    } else if (Array.isArray(result)) {
+      diaries.value = result
+    } else {
+      diaries.value = []
+    }
   }
 
   const fetchDiaryDetail = async (id: number) => {

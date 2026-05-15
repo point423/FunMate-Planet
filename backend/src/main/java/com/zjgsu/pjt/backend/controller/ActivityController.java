@@ -9,7 +9,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.ArrayList;
 import java.util.List;
 
 @RestController
@@ -21,7 +20,8 @@ public class ActivityController {
     private ActivityService activityService;
 
     @PostMapping
-    public Result<Activity> create(@RequestBody Activity activity) {
+    public Result<Activity> create(@RequestBody Activity activity, @RequestAttribute("currentUserId") Long currentUserId) {
+        activity.setCreatorId(currentUserId);
         return Result.created(activityService.createActivity(activity));
     }
 
@@ -33,51 +33,20 @@ public class ActivityController {
         return Result.success(activityService.getActivities(status, pageRequest));
     }
 
-    @GetMapping("/{id}")
-    public Result<Activity> getDetail(@PathVariable Long id) {
-        Activity activity = activityService.findById(id);
-        return activity != null ? Result.success(activity) : Result.error(404, "活动不存在");
-    }
-
-    /**
-     * 安全修复：防止水平越权 (IDOR)
-     * 只有活动发起人可以修改活动信息
-     */
-    @PutMapping("/{id}")
-    public Result<Activity> update(@PathVariable Long id, 
-                                   @RequestBody Activity activity,
-                                   @RequestAttribute("currentUserId") Long currentUserId) {
-        Activity updated = activityService.updateActivity(id, activity, currentUserId);
-        if (updated == null) {
-            return Result.error(403, "无权修改此活动或活动不存在");
-        }
-        return Result.success(updated);
-    }
-
-    /**
-     * 安全修复：防止水平越权 (IDOR)
-     * 只有活动发起人可以删除活动
-     */
-    @DeleteMapping("/{id}")
-    public Result<String> delete(@PathVariable Long id,
-                                 @RequestAttribute("currentUserId") Long currentUserId) {
-        boolean success = activityService.deleteActivity(id, currentUserId);
-        return success ? Result.success("活动已删除") : Result.error(403, "无权删除此活动或活动不存在");
-    }
-
     @PostMapping("/{id}/join")
-    public Result<String> joinActivity(@PathVariable Long id) {
-        return Result.created("成功加入活动 ID: " + id);
+    public Result<String> joinActivity(@PathVariable Long id, @RequestAttribute("currentUserId") Long currentUserId) {
+        boolean success = activityService.joinActivity(id, currentUserId);
+        return success ? Result.success("成功加入活动") : Result.error(400, "加入失败，活动可能已结束或不存在");
+    }
+
+    @PostMapping("/{id}/end")
+    public Result<String> endActivity(@PathVariable Long id, @RequestAttribute("currentUserId") Long currentUserId) {
+        boolean success = activityService.endActivity(id, currentUserId);
+        return success ? Result.success("活动已结束，现在可以去发布日记和评价搭子了") : Result.error(403, "无权结束此活动");
     }
 
     @GetMapping("/{id}/participants")
     public Result<List<User>> getParticipants(@PathVariable Long id) {
-        List<User> participants = activityService.getParticipants(id);
-        return Result.success(participants != null ? participants : new ArrayList<>());
-    }
-
-    @PostMapping("/{id}/end")
-    public Result<String> endActivity(@PathVariable Long id) {
-        return Result.created("活动已结束");
+        return Result.success(activityService.getParticipants(id));
     }
 }

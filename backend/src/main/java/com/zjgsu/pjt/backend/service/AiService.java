@@ -12,35 +12,43 @@ import java.time.Duration;
 @Service
 public class AiService {
 
-    @Value("${ai.api-key}")
+    @Value("${ai.api-key:ollama}")
     private String apiKey;
 
-    @Value("${ai.base-url:https://api.deepseek.com/v1}")
+    @Value("${ai.base-url:http://ollama:11434/v1}")
     private String baseUrl;
 
     @Value("${ai.model:qwen2.5:1.5b}")
     private String model;
 
     public String generateActivitySuggestion(String userTags, String userLocation, String userQuery) {
-        OpenAIClient client = OpenAIOkHttpClient.builder()
-                .apiKey(apiKey)
-                .baseUrl(baseUrl)
-                .timeout(Duration.ofMinutes(5))
-                .build();
+        System.out.println(">>> 准备调用 AI 服务. URL: " + baseUrl + ", 模型: " + model);
+        try {
+            OpenAIClient client = OpenAIOkHttpClient.builder()
+                    .apiKey(apiKey)
+                    .baseUrl(baseUrl)
+                    .timeout(Duration.ofMinutes(3)) // 增加到 3 分钟，Ollama 第一次启动很慢
+                    .build();
 
-        String prompt = String.format(
-                "你是一个活动推荐助手。用户信息：兴趣标签[%s]，位置[%s]。用户问题：%s。请给出个性化的活动建议和搭子匹配建议，用中文回答，简洁明了。",
-                userTags, userLocation, userQuery
-        );
+            String prompt = String.format(
+                    "你是一个社交星球的活动助手。用户信息：标签[%s]，位置[%s]。用户请求：%s。请给出幽默风趣的活动建议，字数150字内。",
+                    userTags, userLocation, userQuery
+            );
 
-        ChatCompletionCreateParams params = ChatCompletionCreateParams.builder()
-                .model(model)
-                .addUserMessage(prompt)
-                .maxTokens(500)
-                .temperature(0.7)
-                .build();
+            ChatCompletionCreateParams params = ChatCompletionCreateParams.builder()
+                    .model(model)
+                    .addUserMessage(prompt)
+                    .temperature(0.7)
+                    .build();
 
-        ChatCompletion completion = client.chat().completions().create(params);
-        return completion.choices().get(0).message().content().orElse("抱歉，暂时无法生成建议");
+            ChatCompletion completion = client.chat().completions().create(params);
+            String result = completion.choices().get(0).message().content().orElse("AI 正在思考中...");
+            System.out.println(">>> AI 回复成功: " + result);
+            return result;
+        } catch (Exception e) {
+            System.err.println(">>> AI 调用失败: " + e.getMessage());
+            e.printStackTrace();
+            return "抱歉，AI 助手暂时走开了 (" + e.getMessage() + ")";
+        }
     }
 }

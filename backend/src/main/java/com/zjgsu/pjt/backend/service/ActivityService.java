@@ -1,7 +1,9 @@
 package com.zjgsu.pjt.backend.service;
 
 import com.zjgsu.pjt.backend.entity.Activity;
+import com.zjgsu.pjt.backend.entity.ActivityParticipant;
 import com.zjgsu.pjt.backend.entity.User;
+import com.zjgsu.pjt.backend.repository.ActivityParticipantRepository;
 import com.zjgsu.pjt.backend.repository.ActivityRepository;
 import com.zjgsu.pjt.backend.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -10,9 +12,9 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 @Service
 public class ActivityService {
@@ -23,8 +25,15 @@ public class ActivityService {
     @Autowired
     private UserRepository userRepository;
 
+    @Autowired
+    private ActivityParticipantRepository participantRepository;
+
+    @Transactional
     public Activity createActivity(Activity activity) {
-        return activityRepository.save(activity);
+        Activity saved = activityRepository.save(activity);
+        // 创建者自动加入活动
+        joinActivity(saved.getId(), saved.getCreatorId());
+        return saved;
     }
 
     public Page<Activity> getActivities(Integer status, Pageable pageable) {
@@ -62,10 +71,23 @@ public class ActivityService {
         return false;
     }
 
+    @Transactional
     public boolean joinActivity(Long activityId, Long currentUserId) {
         Activity activity = findById(activityId);
-        // 此处逻辑可扩展：检查是否已加入、活动是否结束等
-        return activity != null;
+        if (activity == null || activity.getStatus() != 0) {
+            return false;
+        }
+
+        // 检查是否已加入
+        if (participantRepository.findByActivityIdAndUserId(activityId, currentUserId).isPresent()) {
+            return true;
+        }
+
+        ActivityParticipant participant = new ActivityParticipant();
+        participant.setActivityId(activityId);
+        participant.setUserId(currentUserId);
+        participantRepository.save(participant);
+        return true;
     }
 
     @Transactional
@@ -80,15 +102,10 @@ public class ActivityService {
     }
 
     public List<User> getParticipants(Long activityId) {
-        Activity activity = findById(activityId);
-        if (activity != null && activity.getCreatorId() != null) {
-            User creator = userRepository.findById(activity.getCreatorId()).orElse(null);
-            if (creator != null) {
-                List<User> participants = new ArrayList<>();
-                participants.add(creator);
-                return participants;
-            }
-        }
-        return new ArrayList<>();
+        List<ActivityParticipant> participants = participantRepository.findByActivityId(activityId);
+        List<Long> userIds = participants.stream()
+                .map(ActivityParticipant::getUserId)
+                .collect(Collectors.toList());
+        return userRepository.findAllById(userIds);
     }
 }
