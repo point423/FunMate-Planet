@@ -38,6 +38,16 @@ services:
       - ollama_data:/root/.ollama
     command: serve
 
+  # 修改：复用 ollama 镜像来执行拉取，避免下载新镜像失败
+  ollama-pull-model:
+    image: ollama/ollama:latest
+    container_name: fm-ollama-pull
+    depends_on:
+      - ollama
+    environment:
+      - OLLAMA_HOST=ollama:11434
+    entrypoint: [ "sh", "-c", "sleep 10 && ollama pull qwen2.5:1.5b" ]
+
   backend:
     build:
       context: ./backend
@@ -79,7 +89,6 @@ services:
       backend:
         condition: service_healthy
     healthcheck:
-      # 使用 127.0.0.1 避开 localhost 解析问题，并增加 --spider 提高效率
       test: [ "CMD-SHELL", "wget -q --spider http://127.0.0.1/ || exit 1" ]
       interval: 10s
       timeout: 5s

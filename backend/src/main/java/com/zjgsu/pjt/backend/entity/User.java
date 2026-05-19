@@ -1,16 +1,16 @@
 package com.zjgsu.pjt.backend.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonSetter;
 import jakarta.persistence.*;
 import lombok.Data;
-import lombok.Setter;
-import lombok.AccessLevel;
 import java.time.LocalDateTime;
 import java.util.Map;
 
 @Entity
 @Table(name = "user")
 @Data
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class User {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -21,12 +21,10 @@ public class User {
 
     private String password;
     private String nickname;
-    
-    @Setter(AccessLevel.NONE)
     private String avatar;
     
     private Integer age;
-    private Integer gender; // 0:保密, 1:男, 2:女
+    private Integer gender;
     private String tags;
     private String bio;
 
@@ -34,22 +32,18 @@ public class User {
     private Double latitude;
 
     @Column(name = "average_score")
-    private Double averageScore = 0.0;
+    private Double averageScore = 5.0; // 强制使用 Double 对象类型并赋初值 5.0
 
     @Column(name = "create_time", updatable = false)
     private LocalDateTime createTime = LocalDateTime.now();
 
     @JsonSetter("avatar")
-    public void setAvatar(Object avatar) {
-        if (avatar instanceof String) {
-            this.avatar = (String) avatar;
-        } else if (avatar instanceof Map) {
-            Object url = ((Map<?, ?>) avatar).get("url");
+    public void setAvatarFromObject(Object avatarObj) {
+        if (avatarObj instanceof String) {
+            this.avatar = (String) avatarObj;
+        } else if (avatarObj instanceof Map) {
+            Object url = ((Map<?, ?>) avatarObj).get("url");
             this.avatar = (url != null) ? url.toString() : null;
         }
-    }
-
-    public void setAvatar(String avatar) {
-        this.avatar = avatar;
     }
 }

@@ -1,10 +1,8 @@
 <template>
   <div class="find-partner-view">
-
     <!-- ── Main area ─────────────────────────── -->
     <div class="fp-main">
-
-      <!-- Stats row (my stats) -->
+      <!-- Stats row -->
       <div class="stats-row">
         <div class="stat-card">
           <div class="stat-card-head">activities <span>🔥</span></div>
@@ -20,106 +18,85 @@
         </div>
       </div>
 
-      <!-- Section heading + search -->
-      <div class="fp-header">
-        <p class="fp-heading">
-          Find people nearby who are on the same frequency,<br>find your partner.
-        </p>
+      <!-- Mode Switcher -->
+      <div class="mode-header">
+        <div class="mode-tabs">
+          <button
+            :class="{ active: mode === 'partners' }"
+            @click="mode = 'partners'"
+          >
+            Find Partners
+          </button>
+          <button
+            :class="{ active: mode === 'activities' }"
+            @click="mode = 'activities'"
+          >
+            Find Activities
+          </button>
+        </div>
+
         <div class="fp-search-wrap">
           <el-icon class="fp-search-icon"><Search /></el-icon>
           <input
             v-model="searchQ"
             class="fp-search"
-            placeholder="Search nickname or tag ..."
-            @input="applyFilters"
+            :placeholder="mode === 'partners' ? 'Search nickname...' : 'Search activity...'"
           >
         </div>
       </div>
 
-      <!-- Tag filters -->
-      <div class="tag-row">
-        <button
-          v-for="tag in TAG_LIST"
-          :key="tag.value"
-          type="button"
-          class="tag-chip"
-          :class="{ active: activeTag === tag.value }"
-          @click="selectTag(tag.value)"
-        >
-          <span>{{ tag.emoji }}</span>{{ tag.label }}
-        </button>
-        <button class="tag-more">•••</button>
-      </div>
-
-      <!-- Partner grid -->
-      <div class="partners-grid" v-if="!loading">
-        <UserCard
-          v-for="user in filteredUsers"
-          :key="user.id"
-          :user="user"
-          @select="openDetail"
-          @detail="openDetail"
-        />
-        <div v-if="filteredUsers.length === 0" class="no-results">
-          No partners found nearby. Try adjusting your filters.
+      <!-- Content Area -->
+      <div class="content-scroll">
+        <!-- Partners Grid -->
+        <div v-if="mode === 'partners'" class="partners-grid">
+          <UserCard
+            v-for="user in filteredUsers"
+            :key="user.id"
+            :user="user"
+            @select="openUserDetail"
+          />
         </div>
-      </div>
-      <div v-else class="grid-loading">
-        <el-skeleton v-for="i in 6" :key="i" :rows="3" animated style="margin-bottom:14px" />
+
+        <!-- Activities Grid -->
+        <div v-else class="activities-grid">
+          <ActivityCard
+            v-for="act in filteredActivities"
+            :key="act.id"
+            :activity="act"
+            @join="handleJoin"
+          />
+        </div>
+
+        <div v-if="isEmpty" class="no-results">
+          No items found. Try adjusting your filters.
+        </div>
       </div>
     </div>
 
-    <!-- ── Leaderboard panel ───────────────────── -->
+    <!-- ── Leaderboard panel (Right) ───────────────────── -->
     <aside class="leaderboard-panel">
-      <h3 class="lb-title">leaderboard 📊</h3>
-
-      <!-- Top 3 podium -->
-      <div class="lb-podium">
-        <!-- Silver (2nd) -->
-        <div class="lb-pod silver" v-if="leaderboard[1]">
-          <span class="lb-crown">🥈</span>
-          <img :src="leaderboard[1].avatar" class="lb-pod-ava silver-ring">
-          <div class="lb-pod-name">{{ leaderboard[1].nickname }}</div>
-          <div class="lb-pod-score">⭐ {{ leaderboard[1].score }}</div>
-          <div class="lb-pod-bar" style="height:40px" />
-        </div>
-        <!-- Gold (1st) -->
-        <div class="lb-pod gold" v-if="leaderboard[0]">
-          <span class="lb-crown">🥇</span>
-          <img :src="leaderboard[0].avatar" class="lb-pod-ava gold-ring">
-          <div class="lb-pod-name">{{ leaderboard[0].nickname }}</div>
-          <div class="lb-pod-score">⭐ {{ leaderboard[0].score }}</div>
-          <div class="lb-pod-bar" style="height:60px" />
-        </div>
-        <!-- Bronze (3rd) -->
-        <div class="lb-pod bronze" v-if="leaderboard[2]">
-          <span class="lb-crown">🥉</span>
-          <img :src="leaderboard[2].avatar" class="lb-pod-ava bronze-ring">
-          <div class="lb-pod-name">{{ leaderboard[2].nickname }}</div>
-          <div class="lb-pod-score">⭐ {{ leaderboard[2].score }}</div>
-          <div class="lb-pod-bar" style="height:30px" />
-        </div>
-      </div>
-
-      <!-- Rank 4+ list -->
-      <div class="lb-list">
-        <div
-          v-for="(u, i) in leaderboard.slice(3)"
-          :key="u.id"
-          class="lb-item"
-          @click="openDetail(u)"
-        >
-          <span class="lb-rank">#{{ i + 4 }}</span>
+       <h3 class="lb-title">Top Players 📊</h3>
+       <!-- Leaderboard items... (keep existing logic) -->
+       <div class="lb-list">
+        <div v-for="(u, i) in leaderboard" :key="u.id" class="lb-item">
+          <span class="lb-rank">#{{ i + 1 }}</span>
           <img :src="u.avatar" class="lb-ava">
           <div class="lb-info">
             <div class="lb-name">{{ u.nickname }}</div>
-            <div class="lb-dist">📍 {{ formatDistance(u.distance) }}</div>
+            <div class="lb-dist">⭐ {{ u.score }}</div>
           </div>
-          <span class="lb-score">⭐ {{ u.score }}</span>
         </div>
       </div>
     </aside>
 
+    <!-- Join Dialog -->
+    <el-dialog v-model="joinDialogVisible" title="Join Activity" width="400px">
+      <p>Do you want to join this activity? You can chat with partners after joining.</p>
+      <template #footer>
+        <el-button @click="joinDialogVisible = false">Cancel</el-button>
+        <el-button type="primary" :loading="joining" @click="confirmJoin">Join</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -127,86 +104,89 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { Search } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
 import UserCard from '@/components/discover/UserCard.vue'
-import { getNearbyUsers, getLeaderboard } from '@/api/dazi'  // ✅ 改导入
+import ActivityCard from '@/components/activity/ActivityCard.vue'
+import { getNearbyUsers, getLeaderboard } from '@/api/dazi'
+import { joinActivity } from '@/api/activity'
+import request from '@/api/index'
 import { useUserStore } from '@/stores/user'
-import { formatDistance } from '@/utils/format'
-import { TAG_META_LIST } from '@/utils/tags'
-import { useLocation } from '@/composables/useLocation'
-import type { NearbyUser } from '@/types/user'
 
-const router    = useRouter()
+const router = useRouter()
 const userStore = useUserStore()
-const { updateLocation } = useLocation()
 
-// ── State ────────────────────────────────────────────────────────
-const users      = ref<NearbyUser[]>([])
-const leaderboard= ref<(NearbyUser & { score: number })[]>([])
-const loading    = ref(false)
-const searchQ    = ref('')
-const activeTag  = ref('All')
+// State
+const mode = ref<'partners' | 'activities'>('partners')
+const users = ref([])
+const activities = ref([])
+const leaderboard = ref([])
+const searchQ = ref('')
+const loading = ref(false)
 
+const joinDialogVisible = ref(false)
+const selectedActId = ref<number | null>(null)
+const joining = ref(false)
+
+// Computed
 const myStats = computed(() => ({
   activities: userStore.userInfo?.activities ?? 0,
-  score:      userStore.userInfo?.score      ?? 0,
-  ranking:    userStore.userInfo?.ranking    ?? '--',
+  score: userStore.userInfo?.score ?? 5.0,
+  ranking: userStore.userInfo?.ranking ?? '99+',
 }))
 
-// ── Tag list ──────────────────────────────────────────────────────
-const TAG_LIST = [
-  { value: 'All',    emoji: '',   label: 'All'     },
-  ...TAG_META_LIST,
-]
-
-const normalizeTags = (tags: unknown): string[] => {
-  if (Array.isArray(tags)) return tags.map(tag => String(tag).trim()).filter(Boolean)
-  if (typeof tags === 'string') return tags.split(/[，,]/).map(tag => tag.trim()).filter(Boolean)
-  return []
-}
-
-// ── Filtered list ────────────────────────────────────────────────
 const filteredUsers = computed(() => {
-  let list = [...users.value]
-  if (activeTag.value !== 'All') {
-    const active = activeTag.value.toLowerCase()
-    list = list.filter(u => normalizeTags(u.tags).some(t => t.toLowerCase().includes(active)))
-  }
-  if (searchQ.value) {
-    const keyword = searchQ.value.toLowerCase()
-    list = list.filter(u =>
-      u.nickname.toLowerCase().includes(keyword) ||
-      normalizeTags(u.tags).join(' ').toLowerCase().includes(keyword)
-    )
-  }
-  return list
+  if (!searchQ.value) return users.value
+  return users.value.filter(u => u.nickname.toLowerCase().includes(searchQ.value.toLowerCase()))
 })
 
-// ── Actions ──────────────────────────────────────────────────────
-const selectTag   = (tag: string) => { activeTag.value = tag }
-const applyFilters= () => { /* reactive via computed */ }
-const openDetail  = (user: NearbyUser | (NearbyUser & { score: number })) => router.push(`/user/${user.id}`)
+const filteredActivities = computed(() => {
+  if (!searchQ.value) return activities.value
+  return activities.value.filter(a => a.title.toLowerCase().includes(searchQ.value.toLowerCase()))
+})
 
-// ── Load data ────────────────────────────────────────────────────
+const isEmpty = computed(() => {
+  return (mode.value === 'partners' && filteredUsers.value.length === 0) ||
+         (mode.value === 'activities' && filteredActivities.value.length === 0)
+})
+
+// Actions
 const loadData = async () => {
   loading.value = true
   try {
-    await updateLocation()
-    const [usersRes, lbRes] = await Promise.all([
-      getNearbyUsers({ radius: 10, pageSize: 30 }),  // ✅ 改函数名
-      getLeaderboard(),  // ✅ 改为无参数
+    const [usersRes, lbRes, actRes] = await Promise.all([
+      getNearbyUsers({ radius: 10 }),
+      getLeaderboard(),
+      request.get('/activities', { params: { pageNum: 0, pageSize: 20 } })
     ])
-    users.value = (usersRes as unknown as NearbyUser[]).map(u => ({
-      ...u,
-      tags: normalizeTags(u.tags),
-      distance: u.distance == null ? 0 : Number(u.distance),
-    }))
-    leaderboard.value = (lbRes as unknown as (NearbyUser & { score: number })[]).map(u => ({
-      ...u,
-      tags: normalizeTags(u.tags),
-      distance: u.distance == null ? 0 : Number(u.distance),
-    }))
+    users.value = usersRes
+    leaderboard.value = lbRes
+    activities.value = actRes.content // Spring Data Page result
+  } catch (e) {
+    console.error(e)
   } finally {
     loading.value = false
+  }
+}
+
+const openUserDetail = (user) => router.push(`/user/${user.id}`)
+
+const handleJoin = (id: number) => {
+  selectedActId.value = id
+  joinDialogVisible.value = true
+}
+
+const confirmJoin = async () => {
+  if (!selectedActId.value) return
+  joining.value = true
+  try {
+    await joinActivity(selectedActId.value)
+    ElMessage.success('Joined successfully! Go to chat to find your partners.')
+    joinDialogVisible.value = false
+    loadData()
+  } catch (e) {
+    ElMessage.error('Failed to join')
+  } finally {
+    joining.value = false
   }
 }
 
@@ -214,93 +194,43 @@ onMounted(loadData)
 </script>
 
 <style scoped>
-.find-partner-view { display: flex; flex: 1; overflow: hidden; height: 100%; }
+.find-partner-view { display: flex; flex: 1; height: 100%; overflow: hidden; }
+.fp-main { flex: 1; padding: 24px; display: flex; flex-direction: column; gap: 24px; overflow: hidden; }
 
-/* ── Main ── */
-.fp-main {
-  flex: 1; padding: 24px 24px 20px;
-  overflow-y: auto; display: flex; flex-direction: column; gap: 20px;
-}
-
-.stats-row { display: grid; grid-template-columns: repeat(3,1fr); gap: 14px; }
+.stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
 .stat-card {
-  background: var(--color-surface-2); border: 0.5px solid var(--color-border);
-  border-radius: var(--radius-lg); padding: 18px 20px;
+  background: var(--color-surface-2); border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg); padding: 16px;
 }
-.stat-card-head { font-size: 13px; color: rgba(255,255,255,.8); margin-bottom: 6px; display: flex; align-items: center; justify-content: space-between; }
-.stat-card-val  { font-family: var(--font-display); font-size: 20px; }
+.stat-card-head { font-size: 12px; color: var(--color-text-secondary); margin-bottom: 4px; }
+.stat-card-val { font-size: 18px; font-weight: bold; }
 
-.fp-header {
-  display: flex; align-items: flex-end; justify-content: space-between; gap: 16px;
+.mode-header { display: flex; justify-content: space-between; align-items: center; }
+.mode-tabs { display: flex; background: var(--color-surface-1); padding: 4px; border-radius: var(--radius-md); }
+.mode-tabs button {
+  padding: 6px 16px; border: none; background: transparent; color: var(--color-text-secondary);
+  cursor: pointer; border-radius: 4px; font-size: 14px; transition: all 0.2s;
 }
-.fp-heading { font-family: var(--font-display); font-size: 17px; line-height: 1.4; max-width: 380px; }
+.mode-tabs button.active { background: var(--color-surface-2); color: var(--color-white); box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+
 .fp-search-wrap { position: relative; }
-.fp-search-icon { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--color-text-secondary); }
 .fp-search {
-  padding: 9px 14px 9px 32px; border-radius: var(--radius-full);
-  background: var(--color-surface-2); border: 0.5px solid var(--color-border);
-  color: var(--color-white); font-size: 13px; width: 220px;
+  background: var(--color-surface-2); border: 1px solid var(--color-border);
+  padding: 8px 12px 8px 32px; border-radius: 20px; color: white; width: 200px;
 }
-.fp-search::placeholder { color: var(--color-text-hint); }
+.fp-search-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--color-text-hint); }
 
-.tag-row  { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-.tag-more {
-  padding: 6px 14px; border-radius: var(--radius-full); font-size: 12px;
-  border: 1px solid var(--color-border); color: var(--color-text-secondary);
-  background: var(--color-surface-1); cursor: pointer;
+.content-scroll { flex: 1; overflow-y: auto; padding-bottom: 20px; }
+.partners-grid, .activities-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px;
 }
 
-.partners-grid {
-  display: grid; grid-template-columns: repeat(3,1fr); gap: 14px;
-  align-content: start;
-}
-.no-results {
-  grid-column: 1 / -1; text-align: center;
-  padding: 40px; font-size: 14px; color: var(--color-text-secondary);
-}
-.grid-loading { display: flex; flex-direction: column; }
-
-/* ── Leaderboard ── */
-.leaderboard-panel {
-  width: var(--leaderboard-width); flex-shrink: 0;
-  background: rgba(255,255,200,.06); backdrop-filter: blur(12px);
-  border-left: 0.5px solid var(--color-border-dim);
-  padding: 22px 18px; overflow-y: auto;
-  display: flex; flex-direction: column; gap: 16px;
-}
-
-.lb-title { font-family: var(--font-display); font-size: 18px; }
-
-.lb-podium {
-  display: grid; grid-template-columns: 1fr 1.1fr 1fr;
-  gap: 6px; align-items: end;
-}
-.lb-pod { display: flex; flex-direction: column; align-items: center; gap: 4px; }
-.lb-crown { font-size: 18px; }
-.lb-pod-ava {
-  border-radius: 50%; object-fit: cover;
-  width: 46px; height: 46px;
-  border: 2px solid var(--color-border);
-}
-.gold-ring   { border-color: #FFD700; width: 54px; height: 54px; }
-.silver-ring { border-color: #C0C0C0; }
-.bronze-ring { border-color: #CD7F32; }
-.lb-pod-name  { font-size: 11px; font-weight: 600; text-align: center; }
-.lb-pod-score { font-size: 11px; color: var(--color-text-gold); }
-.lb-pod-bar   { width: 100%; border-radius: 4px 4px 0 0; background: rgba(255,255,255,.06); }
-
-.lb-list { display: flex; flex-direction: column; gap: 8px; }
-.lb-item {
-  display: flex; align-items: center; gap: 10px;
-  padding: 8px 10px; border-radius: var(--radius-md);
-  background: var(--color-surface-1); border: 0.5px solid var(--color-border-dim);
-  cursor: pointer; transition: background .15s;
-}
-.lb-item:hover { background: var(--color-surface-2); }
-.lb-rank  { font-family: var(--font-display); font-size: 13px; color: var(--color-green); min-width: 28px; }
-.lb-ava   { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
-.lb-info  { flex: 1; }
-.lb-name  { font-size: 12px; font-weight: 500; }
-.lb-dist  { font-size: 11px; color: var(--color-text-danger); }
-.lb-score { font-size: 12px; color: var(--color-text-gold); }
+.leaderboard-panel { width: 300px; border-left: 1px solid var(--color-border); padding: 24px; background: rgba(255,255,255,0.02); }
+.lb-title { margin-top: 0; margin-bottom: 20px; font-size: 18px; }
+.lb-list { display: flex; flex-direction: column; gap: 12px; }
+.lb-item { display: flex; align-items: center; gap: 12px; padding: 10px; background: var(--color-surface-1); border-radius: var(--radius-md); }
+.lb-rank { font-weight: bold; color: var(--color-green); width: 24px; }
+.lb-ava { width: 32px; height: 32px; border-radius: 50%; }
+.lb-info { flex: 1; }
+.lb-name { font-size: 13px; font-weight: 500; }
 </style>
