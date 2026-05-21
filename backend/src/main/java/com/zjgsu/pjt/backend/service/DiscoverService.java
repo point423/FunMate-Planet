@@ -29,7 +29,7 @@ public class DiscoverService {
 
     public List<User> getNearbyUsers(Double longitude, Double latitude, Double radius) {
         List<User> list = new ArrayList<>();
-        
+
         // 1. 尝试从 Redis 搜索
         if (longitude != null && latitude != null) {
             try {

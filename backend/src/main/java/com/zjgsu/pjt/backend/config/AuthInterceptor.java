@@ -16,11 +16,13 @@ public class AuthInterceptor implements HandlerInterceptor {
     private final JwtUtil jwtUtil;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
+    // 关键修复：将 AI 测试接口加入拦截器自身的白名单
     private static final Set<String> WHITE_LIST = Set.of(
             "/api/auth/login",
             "/api/auth/register",
             "/api/test/connection",
-            "/api/upload/static"
+            "/api/upload/static",
+            "/api/ai/test"
     );
 
     public AuthInterceptor(JwtUtil jwtUtil) {
@@ -31,7 +33,7 @@ public class AuthInterceptor implements HandlerInterceptor {
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
         String uri = request.getRequestURI();
         
-        // 白名单放行
+        // 白名单放行逻辑
         for (String path : WHITE_LIST) {
             if (uri.startsWith(path)) return true;
         }

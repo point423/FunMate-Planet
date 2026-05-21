@@ -24,7 +24,7 @@ public class User {
     private String avatar;
     
     private Integer age;
-    private Integer gender;
+    private Integer gender; 
     private String tags;
     private String bio;
 
@@ -32,7 +32,7 @@ public class User {
     private Double latitude;
 
     @Column(name = "average_score")
-    private Double averageScore = 5.0; // 强制使用 Double 对象类型并赋初值 5.0
+    private Double averageScore = 5.0; // 强制使用 Double 类型
 
     @Column(name = "create_time", updatable = false)
     private LocalDateTime createTime = LocalDateTime.now();

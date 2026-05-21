@@ -14,6 +14,15 @@ public class AiController {
     @Autowired
     private AiService aiService;
 
+    /**
+     * AI 连通性测试接口
+     */
+    @GetMapping("/test")
+    public Result<String> testAi() {
+        String suggestion = aiService.generateActivitySuggestion("测试标签", "测试位置", "你好，请说一句话证明你在线。");
+        return Result.success(suggestion);
+    }
+
     @PostMapping("/suggest")
     public Result getSuggestion(@RequestBody Map<String, String> request) {
         String userTags = request.getOrDefault("tags", "");
@@ -23,9 +32,6 @@ public class AiController {
         return Result.success(Map.of("suggestion", suggestion));
     }
 
-    /**
-     * 新增：生成活动总结报告
-     */
     @PostMapping("/activity-summary")
     public Result getSummary(@RequestBody Map<String, String> request) {
         String title = request.getOrDefault("title", "未命名活动");
