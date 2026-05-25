@@ -25,7 +25,7 @@
         <img :src="user.avatar" :alt="user.nickname" />
         <div class="orbit-tooltip">
           <div class="ot-name">{{ user.nickname }}</div>
-          <div class="ot-tags">{{ user.tags.slice(0, 2).join(" · ") }}</div>
+          <div class="ot-tags">{{ (user.tags || []).slice(0, 2).join(" · ") }}</div>
         </div>
       </div>
     </div>
@@ -54,7 +54,7 @@
           :alt="matchedUser.nickname"
         />
         <h3 class="match-name">{{ matchedUser.nickname }}</h3>
-        <p class="match-bio">{{ matchedUser.bio }}</p>
+        <p class="match-bio">{{ matchedUser.bio || 'This wanderer is a bit mysterious...' }}</p>
         <div class="match-tags">
           <span
             v-for="tag in matchedUser.tags"
@@ -65,8 +65,7 @@
         </div>
         <p class="match-meta">
           📍 {{ formatDistance(matchedUser.distance) }} &nbsp;·&nbsp;
-          {{ formatScore(matchedUser.score) }} &nbsp;·&nbsp;
-          {{ matchedUser.activities }} activities
+          ⭐ {{ formatScore(matchedUser.score) }}
         </p>
         <div class="match-btns">
           <button
@@ -121,14 +120,16 @@ const orbitPositions = [
 const getCurrentPosition = async () => {
   if (!navigator.geolocation) return DEFAULT_LOCATION;
   try {
+    // 修复：给定位增加 5 秒超时，防止浏览器无响应导致匹配按钮没反应
     const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
-      navigator.geolocation.getCurrentPosition(resolve, reject);
+      navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 5000 });
     });
     return {
       longitude: pos.coords.longitude,
       latitude: pos.coords.latitude,
     };
-  } catch {
+  } catch (e) {
+    console.warn(">>> [AutoMatch] 定位获取失败或超时，使用默认位置");
     return DEFAULT_LOCATION;
   }
 };
@@ -136,27 +137,20 @@ const getCurrentPosition = async () => {
 const normalizeTags = (raw: unknown): string[] => {
   if (Array.isArray(raw)) return raw.filter(Boolean).map(String);
   if (typeof raw === "string") {
-    return raw
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean);
+    return raw.split(",").map((s) => s.trim()).filter(Boolean);
   }
   return [];
 };
 
-const normalizeNearbyUser = (raw: Record<string, unknown>): NearbyUser => ({
+const normalizeNearbyUser = (raw: any): NearbyUser => ({
   ...raw,
   bio: raw?.bio ?? "",
-  avatar: raw?.avatar || "/default-avatar.png",
+  avatar: raw?.avatar || "https://api.dicebear.com/7.x/avataaars/svg?seed=" + raw?.id,
   tags: normalizeTags(raw?.tags),
   activities: Number(raw?.activities ?? 0),
-  score: Number(raw?.score ?? raw?.averageScore ?? 0),
+  // 修复：兼容后端分数变成对象的情况
+  score: typeof raw?.averageScore === 'object' ? Number(raw.averageScore.parsedValue) : Number(raw?.averageScore ?? 0),
   distance: Number(raw?.distance ?? 0),
-  ranking: Number(raw?.ranking ?? 0),
-  publicJournals: Array.isArray(raw?.publicJournals) ? raw.publicJournals : [],
-  recentActivities: Array.isArray(raw?.recentActivities)
-    ? raw.recentActivities
-    : [],
 });
 
 const loadOrbitUsers = async () => {
@@ -167,13 +161,14 @@ const loadOrbitUsers = async () => {
       latitude: position.latitude,
       radius: 10,
       pageSize: 6,
-    })) as NearbyUser[];
+    })) as any;
 
-    orbitUsers.value = data
+    const list = Array.isArray(data) ? data : (data.content || []);
+    orbitUsers.value = list
       .map(normalizeNearbyUser)
       .filter((user) => user.id !== currentUserId.value)
       .slice(0, 6);
-  } catch {
+  } catch (e) {
     orbitUsers.value = [];
   }
 };
@@ -193,28 +188,28 @@ const openMatchCard = (pool: NearbyUser[], index = 0) => {
 };
 
 const openAutoMatch = async () => {
+  console.log(">>> [AutoMatch] 正在寻找搭子...");
   if (matchPool.length === 0) {
     try {
       const position = await getCurrentPosition();
-      const nearby = (await getNearbyUsers({
+      const nearbyRes = await getNearbyUsers({
         longitude: position.longitude,
         latitude: position.latitude,
-        radius: 10,
+        radius: 100, // 扩大范围确保能搜到人
         pageSize: 20,
-      })) as NearbyUser[];
+      }) as any;
 
-      matchPool = nearby
+      const nearbyList = Array.isArray(nearbyRes) ? nearbyRes : (nearbyRes.content || []);
+
+      matchPool = nearbyList
         .map(normalizeNearbyUser)
         .filter((u) => u.id !== currentUserId.value);
 
-      // 附近没人时，尝试拿随机用户
       if (matchPool.length === 0) {
-        const random = await getRandomUser();
-        if (random) {
-          const candidate = normalizeNearbyUser(random);
-          if (candidate.id !== currentUserId.value) {
-            matchPool = [candidate];
-          }
+        console.log(">>> [AutoMatch] 附近没人，尝试随机用户兜底...");
+        const random = await getRandomUser() as any;
+        if (random && random.id !== currentUserId.value) {
+          matchPool = [normalizeNearbyUser(random)];
         }
       }
 
@@ -225,15 +220,11 @@ const openAutoMatch = async () => {
 
       openMatchCard(matchPool, 0);
       return;
-    } catch {
+    } catch (err) {
+      console.error(">>> [AutoMatch] 匹配过程出错:", err);
       ElMessage.error("加载匹配用户失败");
       return;
     }
-  }
-
-  if (matchPool.length === 0) {
-    ElMessage.warning("暂无可匹配用户");
-    return;
   }
 
   openMatchCard(matchPool, matchIdx % matchPool.length);
@@ -250,17 +241,14 @@ const applyFriend = async (user: NearbyUser) => {
     await sendFriendRequest(user.id);
     ElMessage.success(`Friend request sent to ${user.nickname}!`);
     matchVisible.value = false;
-  } catch {
-    // handled by interceptor
-  }
+  } catch (e) {}
 };
 
 const openOrbitUser = (user: NearbyUser) => {
-  const index = orbitUsers.value.findIndex((item) => item.id === user.id);
-  openMatchCard(orbitUsers.value, index >= 0 ? index : 0);
+  matchedUser.value = user;
+  matchVisible.value = true;
 };
 
-// ── Lifecycle ──────────────────────────────────────────────────
 onMounted(() => {
   updateLocation();
   loadOrbitUsers();
@@ -268,317 +256,20 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.home-page {
-  position: relative;
-  z-index: 1;
-  min-height: calc(100vh - var(--nav-height));
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding-bottom: 40px;
-}
-
-/* ── Globe scene ── */
-.globe-scene {
-  position: relative;
-  width: 700px;
-  height: 560px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.orbit-ring {
-  position: absolute;
-  border-radius: 50%;
-  border: 0.5px solid rgba(255, 255, 255, 0.12);
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  pointer-events: none;
-}
-.ring-1 {
-  width: 400px;
-  height: 200px;
-  transform: translate(-50%, -50%) rotateX(75deg);
-}
-.ring-2 {
-  width: 520px;
-  height: 260px;
-  transform: translate(-50%, -50%) rotateX(75deg);
-}
-.ring-3 {
-  width: 640px;
-  height: 320px;
-  transform: translate(-50%, -50%) rotateX(75deg);
-}
-
-.globe {
-  width: 280px;
-  height: 280px;
-  border-radius: 50%;
-  background: radial-gradient(
-      circle at 32% 28%,
-      rgba(120, 180, 255, 0.28) 0%,
-      transparent 40%
-    ),
-    linear-gradient(145deg, #2a5ba8 0%, #1a3e8a 35%, #0e2266 65%, #06144a 100%);
-  box-shadow: 0 0 0 1px rgba(100, 160, 255, 0.18),
-    0 0 50px rgba(60, 100, 200, 0.35), 0 0 100px rgba(40, 80, 180, 0.18),
-    inset 0 0 60px rgba(0, 0, 60, 0.5);
-  position: relative;
-  z-index: 3;
-  overflow: hidden;
-  animation: globeGlow 4s ease-in-out infinite;
-}
-@keyframes globeGlow {
-  0%,
-  100% {
-    box-shadow: 0 0 50px rgba(60, 100, 200, 0.35),
-      inset 0 0 60px rgba(0, 0, 60, 0.5);
-  }
-  50% {
-    box-shadow: 0 0 80px rgba(60, 100, 220, 0.55),
-      inset 0 0 60px rgba(0, 0, 60, 0.5);
-  }
-}
-.globe::before {
-  content: "";
-  position: absolute;
-  width: 42%;
-  height: 35%;
-  top: 12%;
-  left: 15%;
-  background: radial-gradient(
-    ellipse,
-    rgba(200, 230, 255, 0.2) 0%,
-    transparent 70%
-  );
-  border-radius: 50%;
-}
-.globe-land {
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  background: radial-gradient(
-      ellipse 22% 14% at 38% 46%,
-      rgba(60, 160, 100, 0.5) 0%,
-      transparent 100%
-    ),
-    radial-gradient(
-      ellipse 28% 10% at 60% 65%,
-      rgba(50, 130, 80, 0.42) 0%,
-      transparent 100%
-    ),
-    radial-gradient(
-      ellipse 16% 10% at 22% 58%,
-      rgba(55, 140, 85, 0.38) 0%,
-      transparent 100%
-    );
-  animation: landDrift 20s linear infinite;
-}
-@keyframes landDrift {
-  from {
-    transform: translateX(0);
-  }
-  to {
-    transform: translateX(-100%);
-  }
-}
-
-.globe-clouds {
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  background: radial-gradient(
-      ellipse 30% 6% at 40% 28%,
-      rgba(255, 255, 255, 0.14) 0%,
-      transparent 100%
-    ),
-    radial-gradient(
-      ellipse 22% 5% at 65% 48%,
-      rgba(255, 255, 255, 0.1) 0%,
-      transparent 100%
-    );
-  animation: cloudDrift 45s linear infinite;
-}
-@keyframes cloudDrift {
-  from {
-    transform: translateX(0);
-  }
-  to {
-    transform: translateX(-50px);
-  }
-}
-
-/* ── Orbit user avatars ── */
-.orbit-user {
-  position: absolute;
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  overflow: visible;
-  cursor: pointer;
-  z-index: 5;
-}
-.orbit-user img {
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  border: 2.5px solid rgba(255, 255, 255, 0.45);
-  object-fit: cover;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
-  transition: transform 0.2s, border-color 0.2s;
-}
-.orbit-user:hover img {
-  transform: scale(1.2);
-  border-color: var(--color-green);
-}
-.orbit-user:hover .orbit-tooltip {
-  opacity: 1;
-  transform: translateX(-50%) translateY(0);
-}
-
-.orbit-tooltip {
-  position: absolute;
-  top: calc(100% + 8px);
-  left: 50%;
-  transform: translateX(-50%) translateY(6px);
-  background: rgba(18, 16, 42, 0.9);
-  border: 0.5px solid var(--color-border);
-  border-radius: 10px;
-  padding: 6px 10px;
-  white-space: nowrap;
-  opacity: 0;
-  transition: opacity 0.2s, transform 0.2s;
-  pointer-events: none;
-  backdrop-filter: blur(10px);
-  z-index: 200;
-}
-.ot-name {
-  font-size: 12px;
-  font-weight: 600;
-  margin-bottom: 2px;
-}
-.ot-tags {
-  font-size: 11px;
-  color: var(--color-text-secondary);
-}
-
-/* ── Buttons ── */
-.home-btns {
-  display: flex;
-  gap: 16px;
-  margin-top: 8px;
-  position: relative;
-  z-index: 10;
-}
-
-/* ── Match dialog ── */
-:deep(.match-dialog .el-dialog) {
-  background: #0a0a0a !important;
-  border: 1px solid #2a2a2a !important;
-  border-radius: var(--radius-xl);
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.65);
-}
-:deep(.match-dialog .el-dialog__header) {
-  display: none;
-}
-:deep(.match-dialog .el-dialog__body) {
-  padding: 0;
-  background-color: #0a0a0a !important;
-}
-
-.match-card {
-  padding: 32px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 14px;
-  position: relative;
-  text-align: center;
-  color: #f5f5f5;
-  background-color: #0a0a0a !important;  /* ← 加这一行 */
-}
-.match-close {
-  position: absolute;
-  top: 12px;
-  right: 16px;
-  background: none;
-  border: none;
-  color: var(--color-text-secondary);
-  font-size: 22px;
-  cursor: pointer;
-  line-height: 1;
-}
-.match-avatar {
-  width: 80px;
-  height: 80px;
-  border-radius: 50%;
-  object-fit: cover;
-  border: 2.5px solid var(--color-green-border);
-  box-shadow: 0 0 28px var(--color-green-dim);
-}
-.match-name {
-  font-family: var(--font-display);
-  font-size: 22px;
-}
-.match-bio {
-  font-size: 13px;
-  color: var(--color-text-secondary);
-  line-height: 1.6;
-}
-.match-tags {
-  display: flex;
-  gap: 7px;
-  flex-wrap: wrap;
-  justify-content: center;
-}
-.match-meta {
-  font-size: 12px;
-  color: var(--color-text-secondary);
-}
-.match-btns {
-  display: flex;
-  gap: 10px;
-  width: 100%;
-}
-</style>
-
-<style>
-/* 强制覆盖 el-dialog__body 所有白色相关样式 */
-.match-dialog .el-dialog__body {
-  background-color: #0a0a0a !important;
-  padding: 0 !important;
-  margin: 0 !important;
-  border: none !important;
-  box-shadow: none !important;
-}
-
-.match-dialog .el-dialog {
-  background-color: #0a0a0a !important;
-  border: 1px solid #2a2a2a !important;
-  overflow: hidden !important;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.65) !important;
-}
-
-.match-dialog .el-dialog__header {
-  display: none !important;
-}
-
-.match-dialog .el-overlay-dialog {
-  background-color: transparent !important;
-}
-
-/* 最终兜底：直接强制所有可能有白色的容器 */
-div[class*="el-dialog__body"] {
-  background-color: #0a0a0a !important;
-  padding: 0 !important;
-}
-
-div[class*="el-dialog"][class*="is-align-center"] {
-  background-color: #0a0a0a !important;
-}
+.home-page { position: relative; z-index: 1; min-height: calc(100vh - var(--nav-height)); display: flex; flex-direction: column; align-items: center; justify-content: center; padding-bottom: 40px; }
+.globe-scene { position: relative; width: 700px; height: 560px; display: flex; align-items: center; justify-content: center; }
+.orbit-ring { position: absolute; border-radius: 50%; border: 0.5px solid rgba(255, 255, 255, 0.12); top: 50%; left: 50%; transform: translate(-50%, -50%); pointer-events: none; }
+.ring-1 { width: 400px; height: 200px; transform: translate(-50%, -50%) rotateX(75deg); }
+.ring-2 { width: 520px; height: 260px; transform: translate(-50%, -50%) rotateX(75deg); }
+.ring-3 { width: 640px; height: 320px; transform: translate(-50%, -50%) rotateX(75deg); }
+.globe { width: 280px; height: 280px; border-radius: 50%; background: linear-gradient(145deg, #2a5ba8 0%, #06144a 100%); box-shadow: 0 0 50px rgba(60, 100, 200, 0.35); position: relative; z-index: 3; overflow: hidden; }
+.orbit-user { position: absolute; width: 44px; height: 44px; border-radius: 50%; cursor: pointer; z-index: 5; }
+.orbit-user img { width: 44px; height: 44px; border-radius: 50%; border: 2.5px solid rgba(255, 255, 255, 0.45); object-fit: cover; }
+.home-btns { display: flex; gap: 16px; margin-top: 8px; z-index: 10; }
+.match-card { padding: 32px; display: flex; flex-direction: column; align-items: center; gap: 14px; position: relative; text-align: center; color: #f5f5f5; background-color: #0a0a0a !important; }
+.match-avatar { width: 80px; height: 80px; border-radius: 50%; border: 2.5px solid var(--color-green-border); }
+.match-name { font-family: var(--font-display); font-size: 22px; }
+.match-tags { display: flex; gap: 7px; flex-wrap: wrap; justify-content: center; }
+.match-btns { display: flex; gap: 10px; width: 100%; }
+.match-close { position: absolute; top: 12px; right: 16px; background: none; border: none; color: var(--color-text-secondary); font-size: 22px; cursor: pointer; }
 </style>

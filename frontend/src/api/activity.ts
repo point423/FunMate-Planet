@@ -1,78 +1,87 @@
-// // src/api/activity.ts
-// import request from './index'
-// import type { ActivityForm } from '@/types/activity'
-
-// export const createActivity = (data: ActivityForm) =>
-//   request.post('/activities', data)
-
-// export const getActivityDetail = (id: number) =>
-//   request.get(`/activities/${id}`)
-
-// export const completeActivity = (id: number) =>
-//   request.post(`/activities/${id}/complete`)
-
-// export const getMyDiaries = () =>
-//   request.get('/diaries')
-
-// export const getDiaryDetail = (id: number) =>
-//   request.get(`/diaries/${id}`)
-
-// export const createDiary = (data: FormData) =>
-//   request.post('/diaries', data, {
-//     headers: { 'Content-Type': 'multipart/form-data' },
-//   })
-
-// export const addDiaryEntry = (diaryId: number, content: string) =>
-//   request.post(`/diaries/${diaryId}/entries`, { content })
-
-// export const uploadImage = (file: File) => {
-//   const form = new FormData()
-//   form.append('file', file)
-//   return request.post<string>('/upload/image', form, {
-//     headers: { 'Content-Type': 'multipart/form-data' },
-//   })
-// }
-
-// src/api/activity.ts
 import request from './index'
-import type { ActivityForm } from '@/types/activity'
+import type { ActivityForm, Activity } from '@/types/activity'
 
+/**
+ * 创建活动
+ */
 export const createActivity = (data: ActivityForm) =>
   request.post('/activities', data)
 
-export const getActivityDetail = (_id: number) =>
-  request.get(`/activities/${_id}`)
+/**
+ * 修改活动
+ */
+export const updateActivity = (id: number, data: ActivityForm | any) =>
+  request.put(`/activities/${id}`, data)
 
-// ✅ 改路径：/activities/{id}/end 而非 /activities/{id}/complete
+/**
+ * 获取活动详情 (包含参与者信息)
+ */
+export const getActivityDetail = (id: number) =>
+  request.get<any>(`/activities/${id}`)
+
+/**
+ * 分页获取活动列表
+ */
+export const getActivities = (params: { pageNum?: number, pageSize?: number, status?: number }) =>
+  request.get<any>('/activities', { params })
+
+/**
+ * 结束活动
+ */
 export const endActivity = (id: number) =>
   request.post(`/activities/${id}/end`, {})
 
-// 向后兼容
-export const completeActivity = endActivity
-
-// ✅ 新增：活动更新接口
-export const updateActivity = (id: number, data: Partial<ActivityForm>) =>
-  request.put(`/activities/${id}`, data)
-
-// ✅ 新增：参与活动接口
+/**
+ * 加入活动
+ */
 export const joinActivity = (id: number) =>
   request.post(`/activities/${id}/join`, {})
 
-export const getMyDiaries = (pageNum?: number, pageSize?: number) =>
-  request.get('/diaries', { params: { pageNum, pageSize } })
+/**
+ * 提交对他人的评价
+ */
+export const reviewParticipant = (activityId: number, data: { revieweeId: number, rating: number, comment: string }) =>
+  request.post(`/activities/${activityId}/review`, data)
 
+/**
+ * 获取活动的 AI 总结
+ */
+export const getActivityAiSummary = (activityId: number) =>
+  request.get<string>(`/activities/${activityId}/ai-summary`)
+
+/**
+ * 获取社交排行榜
+ */
+export const getLeaderboard = () =>
+  request.get<any[]>('/activities/leaderboard')
+
+/**
+ * 创建日记/活动回顾
+ */
+export const createDiary = (data: FormData) =>
+  request.post('/diaries', data, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  })
+
+/**
+ * 获取我的日记列表
+ */
+export const getMyDiaries = (params?: { pageNum?: number, pageSize?: number }) =>
+  request.get('/diaries', { params })
+
+/**
+ * 获取日记详情
+ */
 export const getDiaryDetail = (id: number) =>
   request.get(`/diaries/${id}`)
 
-export const createDiary = (data: FormData) =>
-  request.post('/diaries', data)
-
-// ✅ 移除：/diaries/{id}/entries 此接口后端未实现，改用创建新日记
-// export const addDiaryEntry = (diaryId: number, content: string) =>
-//   request.post(`/diaries/${diaryId}/entries`, { content })
-
+/**
+ * 上传图片
+ */
 export const uploadImage = (file: File) => {
-  const form = new FormData()
-  form.append('file', file)
-  return request.post<{ url: string }>('/upload/image', form)
+  const fd = new FormData()
+  fd.append('file', file)
+  return request.post<{ url: string }>('/upload/image', fd, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  })
 }

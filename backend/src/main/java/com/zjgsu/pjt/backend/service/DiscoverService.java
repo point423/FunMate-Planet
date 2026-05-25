@@ -28,29 +28,34 @@ public class DiscoverService {
     private static final String GEO_KEY = "user:location";
 
     public List<User> getNearbyUsers(Double longitude, Double latitude, Double radius) {
-        // 增加非空校验，如果坐标为空，返回空列表或按其他逻辑处理
-        if (longitude == null || latitude == null) {
-            return new ArrayList<>();
-        }
-        try {
-            Point point = new Point(longitude, latitude);
-            Distance distance = new Distance(radius, RedisGeoCommands.DistanceUnit.KILOMETERS);
-            Circle circle = new Circle(point, distance);
+        List<User> list = new ArrayList<>();
 
-            var results = stringRedisTemplate.opsForGeo().radius(GEO_KEY, circle);
+        // 1. 尝试从 Redis 搜索
+        if (longitude != null && latitude != null) {
+            try {
+                Point point = new Point(longitude, latitude);
+                Distance distance = new Distance(radius, RedisGeoCommands.DistanceUnit.KILOMETERS);
+                Circle circle = new Circle(point, distance);
+                var results = stringRedisTemplate.opsForGeo().radius(GEO_KEY, circle);
 
-            if (results == null || results.getContent().isEmpty()) {
-                return new ArrayList<>();
+                if (results != null && !results.getContent().isEmpty()) {
+                    List<Long> ids = results.getContent().stream()
+                            .map(res -> Long.valueOf(res.getContent().getName()))
+                            .collect(Collectors.toList());
+                    list = userRepository.findAllById(ids);
+                }
+            } catch (Exception e) {
+                System.err.println("Redis Search Error: " + e.getMessage());
             }
-
-            List<Long> ids = results.getContent().stream()
-                    .map(res -> Long.valueOf(res.getContent().getName()))
-                    .collect(Collectors.toList());
-
-            return userRepository.findAllById(ids);
-        } catch (Exception e) {
-            throw new RuntimeException("搜索失败: " + e.getMessage());
         }
+
+        // 2. 强力补救：如果没搜到人（Redis 没数或距离太远）
+        // 直接返回数据库里评分最高的前 20 个人，确保匹配池不为空
+        if (list.isEmpty()) {
+            list = userRepository.findAll(PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "averageScore"))).getContent();
+        }
+
+        return list;
     }
 
     public List<User> getRanking(int limit) {
@@ -61,29 +66,17 @@ public class DiscoverService {
 
     public User getRandomUser() {
         List<User> all = userRepository.findAll();
-        if (all.isEmpty()) {
-            return null;
-        }
+        if (all.isEmpty()) return null;
         return all.get(new Random().nextInt(all.size()));
     }
 
     public void updateUserLocation(Long userId, Double longitude, Double latitude) {
         if (longitude == null || latitude == null) return;
-        try {
-            stringRedisTemplate.opsForGeo().add(GEO_KEY,
-                new Point(longitude, latitude),
-                String.valueOf(userId));
-        } catch (Exception e) {
-            throw new RuntimeException("更新位置失败: " + e.getMessage());
-        }
+        stringRedisTemplate.opsForGeo().add(GEO_KEY, new Point(longitude, latitude), String.valueOf(userId));
     }
 
     public boolean deleteUserLocation(Long userId) {
-        try {
-            Long removed = stringRedisTemplate.opsForGeo().remove(GEO_KEY, String.valueOf(userId));
-            return removed != null && removed > 0;
-        } catch (Exception e) {
-            throw new RuntimeException("删除位置失败: " + e.getMessage());
-        }
+        Long removed = stringRedisTemplate.opsForGeo().remove(GEO_KEY, String.valueOf(userId));
+        return removed != null && removed > 0;
     }
 }
