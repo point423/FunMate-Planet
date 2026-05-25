@@ -2,24 +2,28 @@
 
 export interface Activity {
   id: number
-  name: string
+  creatorId: number
+  title: string
+  description: string
+  activityTime: string
   location: string
-  participants: ActivityParticipant[]
-  startTime: string
-  endTime?: string
-  status: 'active' | 'completed'
-  journalId?: number
+  maxParticipants: number
+  status: number // 0:招募中, 1:进行中, 2:已结束
+  createTime: string
+  participants?: ActivityParticipant[]
 }
 
 export interface ActivityParticipant {
   userId: number
   nickname: string
   avatar: string
+  status: number
 }
 
 export interface ActivityForm {
-  name: string
+  title: string
+  description: string
+  activityTime: string
   location: string
-  startTime: string
-  participantIds: number[]
+  maxParticipants: number
 }

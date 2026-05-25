@@ -4,174 +4,218 @@
     <div class="jd-cover">
       <img :src="diary.coverImage || 'https://images.unsplash.com/photo-1517486808906-6ca8b3f04846?q=80&w=800'" :alt="diary.title">
       <div class="jd-cover-overlay">
-        <h2 class="jd-title">{{ diary.title || 'Activity Review' }}</h2>
+        <h2 class="jd-title">{{ diary.title || '活动回顾' }}</h2>
         <div class="jd-meta-tags">
-          <span class="m-tag">📍 {{ diary.location }}</span>
+          <span class="m-tag">📍 {{ diary.location || '未知地点' }}</span>
           <span class="m-tag">📅 {{ formatDate(diary.createTime) }}</span>
         </div>
       </div>
     </div>
 
     <div class="jd-content">
-      <!-- AI 建议板块 (核心闭环) -->
+      <!-- 1. AI 总结板块 (带打字机效果) -->
       <div class="ai-summary-card" :class="{ 'is-loading': aiLoading }">
         <div class="ai-header">
           <span class="ai-icon">✨</span>
-          <span class="ai-title">AI Planet Observer</span>
-          <button class="ai-gen-btn" @click="generateAiSummary" :disabled="aiLoading">
-            {{ aiSummary ? 'Regenerate' : 'Generate Summary' }}
-          </button>
+          <span class="ai-title">AI 星球观察者</span>
+          <el-button
+            size="small"
+            type="primary"
+            round
+            @click="generateAiSummary"
+            :loading="aiLoading"
+          >
+            {{ aiSummary ? '重新生成' : '开启 AI 回忆录' }}
+          </el-button>
         </div>
         <div class="ai-body">
-          <p v-if="aiSummary" class="ai-text">{{ aiSummary }}</p>
-          <p v-else-if="aiLoading" class="ai-placeholder">AI is analyzing your social frequency...</p>
-          <p v-else class="ai-placeholder">Click to get AI social suggestions for this activity.</p>
+          <p v-if="displayText" class="ai-text typewriter">{{ displayText }}</p>
+          <p v-else-if="aiLoading" class="ai-placeholder">正在深度解析本次社交能量...</p>
+          <p v-else class="ai-placeholder">点击上方按钮，生成本次活动的 AI 专属总结。</p>
         </div>
       </div>
 
-      <!-- 参与者评价板块 -->
-      <div class="section-title">Rate your partners</div>
+      <!-- 2. 评价搭子 -->
+      <div class="section-header">
+        <span class="section-title">评价你的搭子</span>
+        <span class="section-desc">好评会让对方在排行榜上更亮眼哦</span>
+      </div>
+
       <div class="participants-list">
-        <div v-for="p in diary.participants" :key="p.userId" class="p-item">
-          <img :src="p.avatar" class="p-ava">
+        <div v-for="p in otherParticipants" :key="p.userId" class="p-card">
+          <el-avatar :size="50" :src="p.avatar" />
           <div class="p-info">
             <div class="p-name">{{ p.nickname }}</div>
-            <div class="p-rate">
-               <span v-for="s in 3" :key="s" class="s-emoji" @click="submitRate(p.userId, s)">
-                 {{ s === 3 ? '😊' : s === 2 ? '😐' : '😢' }}
-               </span>
-            </div>
+            <el-rate
+              v-model="p.userRating"
+              @change="(val) => handleRate(p.userId, val)"
+              :colors="['#99A9BF', '#F7BA2A', '#FF9900']"
+            />
           </div>
         </div>
+        <div v-if="otherParticipants.length === 0" class="no-data">本次活动只有你自己哦~</div>
       </div>
 
-      <!-- 活动日记内容 -->
-      <div class="section-title">Activity Moments</div>
-      <div class="jd-entries">
-        <div v-for="entry in diary.entries" :key="entry.id" class="jd-entry">
-          <p>{{ entry.content }}</p>
-          <div class="entry-meta">-- {{ entry.authorNickname }}</div>
+      <!-- 3. 活动日记内容 -->
+      <div class="section-header">
+        <span class="section-title">活动记录</span>
+      </div>
+      <div class="diary-body">
+        <div class="diary-text">{{ diary.content || '暂无文字记录' }}</div>
+        <div class="diary-images" v-if="parsedImages.length">
+          <el-image
+            v-for="(img, idx) in parsedImages"
+            :key="idx"
+            :src="img"
+            class="diary-img"
+            :preview-src-list="parsedImages"
+          />
         </div>
-        <div v-if="!diary.entries?.length" class="no-entries">No diary entries yet.</div>
       </div>
     </div>
   </div>
 
-  <div v-else-if="loading" class="jd-loading">
+  <div v-else class="jd-loading">
     <el-skeleton :rows="10" animated />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useActivityStore } from '@/stores/activity'
-import { getActivitySummary } from '@/api/ai'
-import { ratePartner } from '@/api/user'
+import { useUserStore } from '@/stores/user'
+import { getActivityAiSummary, reviewParticipant } from '@/api/activity'
 import { formatDate } from '@/utils/format'
 
 const route = useRoute()
 const actStore = useActivityStore()
+const userStore = useUserStore()
 
 const diary = ref<any>(null)
-const loading = ref(false)
 const aiLoading = ref(false)
 const aiSummary = ref('')
+const displayText = ref('')
 
-const loadDiary = async (id: number) => {
-  loading.value = true
+// 过滤掉自己
+const otherParticipants = computed(() => {
+  if (!diary.value || !diary.value.participants) return []
+  return diary.value.participants
+    .filter(p => p.userId !== userStore.userInfo?.id)
+    .map(p => ({ ...p, userRating: 0 }))
+})
+
+const parsedImages = computed(() => {
+  if (!diary.value?.images) return []
   try {
-    const res = await actStore.fetchDiaryDetail(id)
-    diary.value = res
-  } finally {
-    loading.value = false
+    const imgs = typeof diary.value.images === 'string' ? JSON.parse(diary.value.images) : diary.value.images
+    return Array.isArray(imgs) ? imgs : [imgs]
+  } catch {
+    return [diary.value.images]
   }
+})
+
+// 打字机效果
+const typewriter = (text: string) => {
+  displayText.value = ''
+  let i = 0
+  const timer = setInterval(() => {
+    if (i < text.length) {
+      displayText.value += text.charAt(i)
+      i++
+    } else {
+      clearInterval(timer)
+    }
+  }, 30)
 }
 
 const generateAiSummary = async () => {
-  if (!diary.value) return
+  const id = diary.value.activityId || Number(route.params.id)
   aiLoading.value = true
   try {
-    const participantsNames = diary.value.participants.map(p => p.nickname).join(', ')
-    const res = await getActivitySummary({
-      title: diary.value.title || 'Coding activity',
-      participants: participantsNames,
-      reviews: "Participants were very active and helpful."
-    })
-    aiSummary.value = res.summary
+    const res = await getActivityAiSummary(id) as any
+    // 假设后端 Result.data 是字符串
+    aiSummary.value = typeof res === 'string' ? res : (res.data || 'AI 总结生成失败')
+    typewriter(aiSummary.value)
   } catch (e) {
-    ElMessage.error('AI is resting, please try again later.')
+    ElMessage.error('AI 正在开小差，请稍后再试')
   } finally {
     aiLoading.value = false
   }
 }
 
-const submitRate = async (targetUserId: number, score: number) => {
+const handleRate = async (targetId: number, rating: number) => {
+  const activityId = diary.value.activityId
   try {
-    await ratePartner(targetUserId, score)
-    ElMessage.success('Rating recorded! Their ranking will be updated.')
+    await reviewParticipant(activityId, {
+      revieweeId: targetId,
+      rating: rating,
+      comment: '来自日记回顾页的评价'
+    })
+    ElMessage.success('评价成功，感谢参与！')
   } catch (e) {
-    ElMessage.error('Failed to submit rating.')
+    ElMessage.error('评价提交失败')
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
   const id = Number(route.params.id)
-  if (id) loadDiary(id)
+  if (id) {
+    diary.value = await actStore.fetchDiaryDetail(id)
+  }
 })
 </script>
 
 <style scoped>
-.journal-detail { height: 100%; overflow-y: auto; background: var(--color-bg); }
-
+.journal-detail { height: 100%; overflow-y: auto; background: var(--color-bg); color: #eee; }
 .jd-cover { height: 260px; position: relative; overflow: hidden; }
 .jd-cover img { width: 100%; height: 100%; object-fit: cover; }
 .jd-cover-overlay {
-  position: absolute; bottom: 0; left: 0; right: 0;
-  padding: 40px 24px 20px;
-  background: linear-gradient(transparent, rgba(0,0,0,0.8));
+  position: absolute; bottom: 0; left: 0; right: 0; padding: 40px 24px 20px;
+  background: linear-gradient(transparent, rgba(0,0,0,0.9));
 }
-.jd-title { font-size: 28px; font-weight: bold; color: white; margin: 0; }
-.jd-meta-tags { display: flex; gap: 12px; margin-top: 10px; }
+.jd-title { font-size: 28px; font-weight: bold; margin: 0; color: #fff; }
+.jd-meta-tags { display: flex; gap: 15px; margin-top: 10px; opacity: 0.8; }
 .m-tag { font-size: 13px; color: rgba(255,255,255,0.8); }
 
 .jd-content { padding: 24px; display: flex; flex-direction: column; gap: 24px; }
 
 /* AI Card */
 .ai-summary-card {
-  background: linear-gradient(135deg, rgba(0, 255, 149, 0.1), rgba(0, 149, 255, 0.1));
-  border: 1px solid rgba(0, 255, 149, 0.3);
-  border-radius: var(--radius-lg); padding: 20px;
+  background: rgba(0, 255, 149, 0.05);
+  border: 1px solid rgba(0, 255, 149, 0.2);
+  border-radius: 16px; padding: 20px;
 }
-.ai-header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
-.ai-icon { font-size: 20px; }
-.ai-title { font-weight: bold; flex: 1; color: var(--color-green); }
-.ai-gen-btn {
-  background: var(--color-green); color: black; border: none;
-  padding: 4px 12px; border-radius: 4px; font-size: 12px; font-weight: bold; cursor: pointer;
+.ai-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.ai-title { font-weight: bold; color: var(--color-green); font-size: 15px; }
+.ai-text { font-size: 14px; line-height: 1.8; color: #ddd; white-space: pre-wrap; }
+.ai-placeholder { color: #666; font-size: 13px; font-style: italic; }
+
+.section-header { border-left: 4px solid var(--color-green); padding-left: 12px; margin-top: 10px; }
+.section-title { font-size: 16px; font-weight: bold; display: block; }
+.section-desc { font-size: 11px; color: #888; margin-top: 2px; }
+
+.participants-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
+.p-card {
+  background: var(--color-surface-1); padding: 12px; border-radius: 12px;
+  display: flex; align-items: center; gap: 12px; border: 1px solid var(--color-border);
 }
-.ai-text { font-size: 14px; line-height: 1.6; color: var(--color-white); }
-.ai-placeholder { color: var(--color-text-hint); font-size: 13px; font-style: italic; }
+.p-info { flex: 1; }
+.p-name { font-size: 13px; font-weight: 500; margin-bottom: 4px; }
 
-.section-title { font-size: 16px; font-weight: bold; border-left: 4px solid var(--color-green); padding-left: 10px; }
+.diary-body { background: var(--color-surface-1); padding: 20px; border-radius: 12px; }
+.diary-text { font-size: 15px; line-height: 1.6; color: #ccc; margin-bottom: 15px; }
+.diary-images { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; }
+.diary-img { border-radius: 8px; height: 120px; width: 100%; }
 
-.participants-list { display: flex; gap: 16px; overflow-x: auto; padding-bottom: 10px; }
-.p-item {
-  background: var(--color-surface-1); padding: 12px; border-radius: var(--radius-md);
-  min-width: 140px; display: flex; flex-direction: column; align-items: center; gap: 8px;
+.no-data { text-align: center; color: #666; padding: 20px; font-size: 13px; }
+.jd-loading { padding: 40px; }
+
+.typewriter {
+  border-right: 2px solid var(--color-green);
+  animation: blink 0.7s infinite;
 }
-.p-ava { width: 48px; height: 48px; border-radius: 50%; }
-.p-name { font-size: 13px; font-weight: 500; }
-.s-emoji { font-size: 20px; cursor: pointer; transition: transform 0.2s; margin: 0 4px; }
-.s-emoji:hover { transform: scale(1.3); }
 
-.jd-entries { display: flex; flex-direction: column; gap: 12px; }
-.jd-entry {
-  background: var(--color-surface-2); padding: 16px; border-radius: var(--radius-md);
-  border: 1px solid var(--color-border);
-}
-.entry-meta { text-align: right; font-size: 12px; color: var(--color-text-hint); margin-top: 8px; }
-
-.no-entries { text-align: center; color: var(--color-text-hint); padding: 20px; }
+@keyframes blink { 50% { border-color: transparent; } }
 </style>
