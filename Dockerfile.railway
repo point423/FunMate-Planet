@@ -1,12 +1,16 @@
+# syntax=docker/dockerfile:1.6
 FROM maven:3.9.9-eclipse-temurin-21 AS builder
 
 WORKDIR /workspace
 
+COPY docker/maven-settings.xml /root/.m2/settings.xml
 COPY backend/pom.xml .
-RUN mvn -B -ntp dependency:go-offline
+RUN --mount=type=cache,target=/root/.m2/repository \
+    mvn -B -ntp -s /root/.m2/settings.xml dependency:go-offline
 
 COPY backend/src ./src
-RUN mvn -B -ntp clean package -DskipTests
+RUN --mount=type=cache,target=/root/.m2/repository \
+    mvn -B -ntp -s /root/.m2/settings.xml clean package -DskipTests
 
 FROM bellsoft/liberica-openjdk-alpine:21
 
