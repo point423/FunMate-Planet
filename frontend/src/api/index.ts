@@ -3,8 +3,10 @@ import axios from 'axios'
 import type { AxiosInstance, AxiosResponse } from 'axios'
 import { ElMessage } from 'element-plus'
 
+const apiBaseURL = import.meta.env.VITE_API_BASE_URL || '/api'
+
 const service: AxiosInstance = axios.create({
-  baseURL: '/api',
+  baseURL: apiBaseURL,
   timeout: 600000,
   headers: { 'Content-Type': 'application/json' },
 })
