@@ -104,7 +104,7 @@ docker compose down -v
 DOCKER_BUILDKIT=1 docker build --network=host --progress=plain -f Dockerfile.railway -t funmate-backend:railway .
 ```
 
-`Dockerfile.railway` 使用 `docker/maven-settings.xml` 中的 Maven 镜像源，并启用了 BuildKit 的 `/root/.m2/repository` 缓存。缓存挂载使用固定 `id=funmate-maven-repository`，兼容 Railway builder。第一次构建仍需要下载依赖，后续构建会复用缓存。
+`Dockerfile.railway` 使用 `docker/maven-settings.xml` 中的 Maven 镜像源。为了兼容 Railway builder，云端 Dockerfile 不使用 cache mount；第一次构建仍需要下载依赖。
 
 如果卡在 `mvn dependency:go-offline` 很久，先验证容器内 Maven 网络：
 

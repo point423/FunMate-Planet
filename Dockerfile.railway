@@ -4,12 +4,9 @@ WORKDIR /workspace
 
 COPY docker/maven-settings.xml /root/.m2/settings.xml
 COPY backend/pom.xml .
-RUN --mount=type=cache,id=funmate-maven-repository,target=/root/.m2/repository \
-    mvn -B -ntp -s /root/.m2/settings.xml dependency:go-offline
 
 COPY backend/src ./src
-RUN --mount=type=cache,id=funmate-maven-repository,target=/root/.m2/repository \
-    mvn -B -ntp -s /root/.m2/settings.xml clean package -DskipTests
+RUN mvn -B -ntp -s /root/.m2/settings.xml clean package -DskipTests
 
 FROM bellsoft/liberica-openjdk-alpine:21
 
