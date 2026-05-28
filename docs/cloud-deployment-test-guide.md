@@ -101,7 +101,7 @@ docker compose down -v
 在项目根目录执行：
 
 ```bash
-DOCKER_BUILDKIT=1 docker build -f Dockerfile.railway -t funmate-backend:railway .
+DOCKER_BUILDKIT=1 docker build --network=host --progress=plain -f Dockerfile.railway -t funmate-backend:railway .
 ```
 
 `Dockerfile.railway` 使用 `docker/maven-settings.xml` 中的 Maven 镜像源，并启用了 BuildKit 的 `/root/.m2/repository` 缓存。第一次构建仍需要下载依赖，后续构建会复用缓存。
