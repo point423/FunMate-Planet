@@ -3,6 +3,7 @@
 姓名：彭静婷
 学号：2312190309
 日期：2026-05-29
+分支：feature-point423-13-monitoring
 
 ## 我完成的工作
 
@@ -27,7 +28,8 @@
 
 ## PR 链接
 
-- PR：待提交后填写
+- 分支已推送到 GitHub：`feature-point423-13-monitoring`
+- PR：提交作业或发起合并请求后填写
 
 ## 遇到的问题和解决
 
@@ -36,6 +38,17 @@
 
 2. 问题：结构化日志需要兼容本地 Docker 和云部署环境。
    解决：使用 Logback 原生配置输出 JSON 日志到控制台和文件，容器平台可直接采集标准输出。
+
+3. 问题：CI 测试环境没有真实 Redis，并且 H2 对 `user` 表名存在关键字兼容问题。
+   解决：测试环境跳过种子数据初始化，在 H2 测试 URL 中配置 `NON_KEYWORDS=USER`，并补齐控制器接口和单测 mock。
+
+## 验证结果
+
+- [x] Linux Docker Compose 后端启动成功。
+- [x] `/health` 返回 `status`、`timestamp`、`version`。
+- [x] `/metrics` 返回请求数、响应时间、错误率等指标。
+- [x] `docker compose logs backend --tail=30` 可以看到 JSON 结构化请求日志。
+- [x] `mvn clean test -DskipTests=false` 在 Linux 环境执行通过。
 
 ## 心得体会
 

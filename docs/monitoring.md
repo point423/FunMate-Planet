@@ -112,8 +112,21 @@ curl http://localhost:8080/health
 curl http://localhost:8080/metrics
 ```
 
-截图建议：
+## Linux Docker 验证记录
 
-- `/health` 返回截图。
-- `/metrics` 返回截图。
-- `docker compose logs backend` 中 JSON 日志截图。
+在 Linux Docker Compose 环境中完成验证，后端容器、MySQL、Redis 均正常启动。
+
+验证命令：
+
+```bash
+curl http://localhost:8080/health
+curl http://localhost:8080/metrics
+docker compose logs backend --tail=30
+```
+
+实际验证结果包括：
+
+- `/health` 正常返回 `status=healthy`、`timestamp`、`version=0.0.1-SNAPSHOT`。
+- `/metrics` 正常返回 `total_requests`、`error_requests`、`error_rate`、`active_requests`、`average_response_time_ms`、`max_response_time_ms`。
+- 后端日志正常输出 JSON 结构化日志，包含 `time`、`level`、`service`、`thread`、`logger`、`message`、`exception` 字段。
+- `mvn clean test -DskipTests=false` 已在 Linux 环境验证通过。
