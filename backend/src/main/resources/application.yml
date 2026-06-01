@@ -2,6 +2,9 @@ server:
   port: ${PORT:8080}
 
 spring:
+  application:
+    name: funmate-planet-backend
+
   # 数据库配置
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
@@ -49,3 +52,5 @@ ai:
   base-url: ${AI_BASE_URL:http://ollama:11434/v1}
   model: ${AI_MODEL:qwen2.5:1.5b}
 
+app:
+  version: ${APP_VERSION:0.0.1-SNAPSHOT}

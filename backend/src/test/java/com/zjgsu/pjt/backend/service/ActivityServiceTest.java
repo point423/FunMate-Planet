@@ -1,6 +1,8 @@
 package com.zjgsu.pjt.backend.service;
 
 import com.zjgsu.pjt.backend.entity.Activity;
+import com.zjgsu.pjt.backend.entity.ActivityParticipant;
+import com.zjgsu.pjt.backend.repository.ActivityParticipantRepository;
 import com.zjgsu.pjt.backend.repository.ActivityRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -20,6 +22,9 @@ public class ActivityServiceTest {
 
     @Mock
     private ActivityRepository activityRepository;
+
+    @Mock
+    private ActivityParticipantRepository participantRepository;
 
     @InjectMocks
     private ActivityService activityService;
@@ -67,7 +72,16 @@ public class ActivityServiceTest {
     @DisplayName("创建活动成功")
     void createActivity_Success() {
         Activity activity = new Activity();
-        when(activityRepository.save(any())).thenReturn(activity);
+        activity.setCreatorId(1L);
+
+        Activity saved = new Activity();
+        saved.setId(10L);
+        saved.setCreatorId(1L);
+
+        when(activityRepository.save(any())).thenReturn(saved);
+        when(participantRepository.findByActivityIdAndUserId(10L, 1L)).thenReturn(Optional.empty());
+        when(participantRepository.save(any(ActivityParticipant.class))).thenReturn(new ActivityParticipant());
+
         assertNotNull(activityService.createActivity(activity));
     }
 }
