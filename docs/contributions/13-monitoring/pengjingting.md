@@ -28,8 +28,7 @@
 
 ## PR 链接
 
-- 分支已推送到 GitHub：`feature-point423-13-monitoring`
-- PR：提交作业或发起合并请求后填写
+- PR : https://github.com/point423/FunMate-Planet/pull/28
 
 ## 遇到的问题和解决
 
