@@ -9,6 +9,8 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.geo.Circle;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.redis.core.GeoOperations;
 import org.springframework.data.redis.core.StringRedisTemplate;
 
@@ -40,6 +42,7 @@ public class DiscoverServiceTest { // ✅ 修复：类名必须与文件名一�
     void getNearbyUsers_Success() {
         when(stringRedisTemplate.opsForGeo()).thenReturn(geoOperations);
         when(geoOperations.radius(anyString(), any(Circle.class))).thenReturn(null);
+        when(userRepository.findAll(any(Pageable.class))).thenReturn(new PageImpl<>(Collections.emptyList()));
 
         List<User> result = discoverService.getNearbyUsers(120.0, 30.0, 10.0);
         assertTrue(result.isEmpty());
@@ -48,8 +51,8 @@ public class DiscoverServiceTest { // ✅ 修复：类名必须与文件名一�
     @Test
     @DisplayName("测试排行榜查询-成功")
     void getRanking_Success() {
-        when(userRepository.findAll(any(org.springframework.data.domain.PageRequest.class)))
-                .thenReturn(new org.springframework.data.domain.PageImpl<>(Collections.singletonList(new User())));
+        when(userRepository.findAll(any(Pageable.class)))
+                .thenReturn(new PageImpl<>(Collections.singletonList(new User())));
 
         List<User> result = discoverService.getRanking(10);
         assertFalse(result.isEmpty());

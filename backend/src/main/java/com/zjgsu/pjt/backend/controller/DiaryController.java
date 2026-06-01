@@ -64,6 +64,17 @@ public class DiaryController {
         return diary != null ? Result.success(diary) : Result.error(404, "日记不存在");
     }
 
+    @PutMapping("/{id}")
+    public Result<ActivityDiary> updateDiary(@PathVariable Long id,
+                                             @RequestBody ActivityDiary diary,
+                                             HttpServletRequest request) {
+        Object attr = request.getAttribute("currentUserId");
+        if (attr == null) return Result.error(401, "未授权");
+        Long currentUserId = Long.valueOf(attr.toString());
+        ActivityDiary updated = diaryService.updateDiary(id, diary, currentUserId);
+        return updated != null ? Result.success(updated) : Result.error(403, "无权修改");
+    }
+
     @DeleteMapping("/{id}")
     public Result<String> deleteDiary(@PathVariable Long id, HttpServletRequest request) {
         Object attr = request.getAttribute("currentUserId");

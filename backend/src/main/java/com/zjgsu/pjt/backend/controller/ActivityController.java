@@ -81,4 +81,10 @@ public class ActivityController {
         if (status == 3) return Result.error(400, "活动人数已经满了哦");
         return Result.error(400, "加入失败");
     }
+
+    @DeleteMapping("/{id}")
+    public Result<String> delete(@PathVariable Long id, @RequestAttribute("currentUserId") Long currentUserId) {
+        boolean deleted = activityService.deleteActivity(id, currentUserId);
+        return deleted ? Result.success("活动已删除") : Result.error(403, "只有发起人可以删除活动哦");
+    }
 }
