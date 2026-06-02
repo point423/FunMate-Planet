@@ -130,3 +130,58 @@ docker compose logs backend --tail=30
 - `/metrics` 正常返回 `total_requests`、`error_requests`、`error_rate`、`active_requests`、`average_response_time_ms`、`max_response_time_ms`。
 - 后端日志正常输出 JSON 结构化日志，包含 `time`、`level`、`service`、`thread`、`logger`、`message`、`exception` 字段。
 - `mvn clean test -DskipTests=false` 已在 Linux 环境验证通过。
+
+## 可选：错误追踪与告警
+
+### 错误追踪（Sentry）
+
+项目可选集成 Sentry 来做应用级错误收集和堆栈跟踪。对 Java Spring Boot，加入依赖并在启动时配置 DSN：
+
+pom.xml 依赖示例：
+
+```xml
+<dependency>
+  <groupId>io.sentry</groupId>
+  <artifactId>sentry-spring-boot-starter</artifactId>
+  <version>6.28.0</version>
+</dependency>
+```
+
+配置示例（environment variable）：
+
+```env
+SENTRY_DSN=https://<public>@o0.ingest.sentry.io/0
+```
+
+在 `application.yml` 中也可通过 `sentry.dsn` 配置。Sentry 可以自动收集未捕获异常、日志记录（当配置桥接时），并在 Web 控制台中聚合错误。
+
+### 告警（基础示例）
+
+若使用 Prometheus + Alertmanager，常见告警规则示例：
+
+```yaml
+groups:
+  - name: funmate-alerts
+    rules:
+      - alert: BackendHighErrorRate
+        expr: increase(http_server_requests_seconds_count{status=~"5.."}[5m]) / increase(http_server_requests_seconds_count[5m]) > 0.05
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High 5xx error rate on backend"
+
+      - alert: BackendDown
+        expr: up{job="funmate-backend"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Backend instance is down"
+```
+
+如果不使用 Prometheus，简单替代是配置容器编排平台（Docker Compose / Kubernetes）健康检查和外部监控合成脚本来检测 `/health` 返回和日志中 5xx 计数，并在阈值超出时通过邮件或 webhook 通知。
+
+---
+
+（新增：docs/contributions/13-monitoring/YOUR_NAME.md 模板，供每位同学填写个人贡献说明）
