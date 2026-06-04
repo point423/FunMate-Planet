@@ -1,0 +1,107 @@
+package com.zjgsu.pjt.backend.controller;
+
+import com.zjgsu.pjt.backend.common.Result;
+import com.zjgsu.pjt.backend.entity.User;
+import com.zjgsu.pjt.backend.service.UserService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.Map;
+
+@RestController
+@RequestMapping("/api/users")
+@CrossOrigin(origins = "*")
+public class UserController {
+
+    @Autowired
+    private UserService userService;
+
+    @GetMapping
+    public Result<List<User>> getUsers() {
+        return Result.success(userService.getAllUsers());
+    }
+
+    @GetMapping("/me")
+    public Result<User> getMe(@RequestAttribute(value = "currentUserId", required = false) Long currentUserId) {
+        if (currentUserId == null) return Result.error(401, "未授权");
+
+        User user = userService.findById(currentUserId);
+        return user != null ? Result.success(user) : Result.error(404, "用户不存在");
+    }
+
+    @PutMapping("/me")
+    public Result<User> updateMe(@RequestAttribute(value = "currentUserId", required = false) Long currentUserId,
+                                 @RequestBody User profile) {
+        if (currentUserId == null) return Result.error(401, "未授权");
+
+        User updated = userService.updateProfile(currentUserId, profile);
+        return updated != null ? Result.success(updated) : Result.error(404, "用户不存在");
+    }
+
+    @GetMapping("/{id:\\d+}")
+    public Result<User> getUserById(@PathVariable Long id) {
+        User user = userService.findById(id);
+        return user != null ? Result.success(user) : Result.error(404, "用户不存在");
+    }
+
+    @GetMapping("/by-username")
+    public Result<User> searchByUsername(@RequestParam String username) {
+        if (username == null || username.trim().isEmpty()) {
+            return Result.error(400, "用户名不能为空");
+        }
+
+        return userService.findByUsername(username.trim())
+            .map(Result::success)
+            .orElseGet(() -> Result.error(404, "用户不存在"));
+    }
+
+    /**
+     * 安全修复：防止水平越权 (IDOR)
+     * 只有用户本人可以修改自己的数据
+     */
+    @PutMapping("/{id:\\d+}")
+    public Result<User> updateUser(@PathVariable Long id, 
+                                   @RequestBody User user,
+                                   @RequestAttribute(value = "currentUserId", required = false) Long currentUserId) {
+        if (currentUserId == null) return Result.error(401, "未授权");
+        if (!id.equals(currentUserId)) {
+            return Result.error(403, "无权操作他人数据");
+        }
+        
+        User updated = userService.updateUser(id, user);
+        return updated != null ? Result.success(updated) : Result.error(404, "用户不存在");
+    }
+
+    /**
+     * 安全修复：防止水平越权 (IDOR)
+     * 只有用户本人可以删除自己的账号
+     */
+    @DeleteMapping("/{id:\\d+}")
+    public Result<String> deleteUser(@PathVariable Long id,
+                                     @RequestAttribute(value = "currentUserId", required = false) Long currentUserId) {
+        if (currentUserId == null) return Result.error(401, "未授权");
+        if (!id.equals(currentUserId)) {
+            return Result.error(403, "无权删除他人账号");
+        }
+
+        boolean success = userService.deleteUser(id);
+        return success ? Result.success("用户删除成功") : Result.error(404, "用户不存在");
+    }
+
+    @PostMapping("/location")
+    public Result<String> updateLocation(@RequestAttribute(value = "currentUserId", required = false) Long currentUserId,
+                                         @RequestBody Map<String, Object> params) {
+        if (currentUserId == null) return Result.error(401, "未授权");
+
+        try {
+            Double longitude = Double.valueOf(params.get("longitude").toString());
+            Double latitude = Double.valueOf(params.get("latitude").toString());
+
+            userService.updateLocation(currentUserId, longitude, latitude);
+            return Result.success("位置上报成功");
+        } catch (Exception e) {
+            return Result.error(400, "参数解析失败");
+        }
+    }
+}

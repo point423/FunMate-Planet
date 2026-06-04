@@ -1,0 +1,24 @@
+name: Security Scan
+
+on:
+  push:
+    branches: [ main, develop, 'feature-*' ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  gitleaks:
+    name: Secret Leak Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        with:
+          # ✅ 修复：配置 detect 模式并带上 --no-git，只扫描当前工作区文件
+          args: detect --source . --verbose --no-git
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,0 +1,9 @@
+*.log
+.git/
+.mvn/
+mvnw
+mvnw.cmd
+.gitignore
+Dockerfile
+.idea/
+*.iml

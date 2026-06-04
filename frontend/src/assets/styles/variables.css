@@ -1,0 +1,52 @@
+/* src/assets/styles/variables.css */
+:root {
+  /* ── Brand colours ── */
+  --color-black:        #000000;
+  --color-white:        #ffffff;
+  --color-green:        #95FF8D;
+  --color-green-dim:    rgba(149, 255, 141, 0.15);
+  --color-green-border: rgba(149, 255, 141, 0.35);
+
+  /* ── Surface colours ── */
+  --color-surface-1:    rgba(255, 255, 255, 0.07);
+  --color-surface-2:    rgba(255, 255, 255, 0.10);
+  --color-surface-3:    rgba(255, 255, 255, 0.14);
+  --color-card-solid:   #1a1a1a;
+
+  /* ── Border / divider ── */
+  --color-border:       rgba(255, 255, 255, 0.15);
+  --color-border-dim:   rgba(255, 255, 255, 0.08);
+
+  /* ── Text ── */
+  --color-text-primary:   #ffffff;
+  --color-text-secondary: rgba(255, 255, 255, 0.60);
+  --color-text-hint:      rgba(255, 255, 255, 0.35);
+  --color-text-danger:    #ff6b6b;
+  --color-text-gold:      #FFD700;
+
+  /* ── Typography ── */
+  --font-display: 'Righteous', cursive;
+  --font-body:    'Roboto Flex', sans-serif;
+
+  /* ── Spacing ── */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+
+  /* ── Radius ── */
+  --radius-sm:   8px;
+  --radius-md:   12px;
+  --radius-lg:   16px;
+  --radius-xl:   20px;
+  --radius-full: 9999px;
+
+  /* ── Layout ── */
+  --nav-height:        88px;
+  --sidebar-width:     320px;
+  --vnav-width:        110px;
+  --leaderboard-width: 280px;
+}

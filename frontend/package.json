@@ -1,0 +1,44 @@
+{
+  "name": "fun-mate-planet",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "lint": "eslint . --ext .vue,.ts,.tsx --fix",
+    "type-check": "vue-tsc --noEmit",
+    "test": "vitest run --coverage",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest --coverage"
+  },
+  "dependencies": {
+    "vue": "^3.4.0",
+    "vue-router": "^4.3.0",
+    "pinia": "^2.1.0",
+    "axios": "^1.6.0",
+    "element-plus": "^2.6.0",
+    "@element-plus/icons-vue": "^2.3.0",
+    "@vueuse/core": "^10.9.0",
+    "date-fns": "^3.6.0",
+    "clsx": "^2.1.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.0.0",
+    "@vue/test-utils": "^2.4.6",
+    "@vue/tsconfig": "^0.5.0",
+    "@vitest/ui": "^1.6.0",
+    "@vitest/coverage-v8": "^1.6.0",
+    "jsdom": "^24.1.0",
+    "typescript": "5.5.4",
+    "vite": "^5.2.0",
+    "vitest": "^1.6.0",
+    "vue-tsc": "^2.0.0",
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0",
+    "eslint": "^8.57.0",
+    "eslint-plugin-vue": "^9.24.0",
+    "vue-eslint-parser": "^9.4.0",
+    "prettier": "^3.2.0"
+  }
+}

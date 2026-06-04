@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <springProperty scope="context" name="APP_NAME" source="spring.application.name" defaultValue="funmate-planet-backend"/>
+    <property name="LOG_FILE" value="logs/app.log"/>
+
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern><![CDATA[{"time":"%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX}","level":"%level","service":"${APP_NAME}","thread":"%thread","logger":"%logger{36}","message":"%replace(%msg){'[\r\n"]','_'}","exception":"%replace(%ex{short}){'[\r\n"]','_'}"}%n]]></pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_FILE}</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>logs/app.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <maxFileSize>10MB</maxFileSize>
+            <maxHistory>7</maxHistory>
+            <totalSizeCap>100MB</totalSizeCap>
+        </rollingPolicy>
+        <encoder>
+            <pattern><![CDATA[{"time":"%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX}","level":"%level","service":"${APP_NAME}","thread":"%thread","logger":"%logger{36}","message":"%replace(%msg){'[\r\n"]','_'}","exception":"%replace(%ex{short}){'[\r\n"]','_'}"}%n]]></pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <root level="${LOG_LEVEL:-INFO}">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="FILE"/>
+    </root>
+</configuration>

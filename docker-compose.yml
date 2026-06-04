@@ -1,0 +1,99 @@
+services:
+  mysql:
+    image: mysql:8.0
+    pull_policy: missing
+    container_name: fm-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: 1234567
+      MYSQL_DATABASE: funmate_planet
+    ports:
+      - "3306:3306"
+    volumes:
+      - ./mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p1234567"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:latest
+    pull_policy: missing
+    container_name: fm-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  ollama:
+    image: ollama/ollama:latest
+    pull_policy: missing
+    container_name: fm-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    command: serve
+
+  # 修改：复用 ollama 镜像来执行拉取，避免下载新镜像失败
+  ollama-pull-model:
+    image: ollama/ollama:latest
+    container_name: fm-ollama-pull
+    depends_on:
+      - ollama
+    environment:
+      - OLLAMA_HOST=ollama:11434
+    entrypoint: [ "sh", "-c", "sleep 10 && ollama pull qwen2.5:1.5b" ]
+
+  backend:
+    build:
+      context: ./backend
+      pull: false
+    container_name: fm-backend
+    ports:
+      - "8080:8080"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      ollama:
+        condition: service_started
+    volumes:
+      - ./uploads:/app/uploads
+    environment:
+      DB_HOST: mysql
+      DB_PASSWORD: 1234567
+      REDIS_HOST: redis
+      AI_API_KEY: ollama
+      AI_BASE_URL: http://ollama:11434/v1
+      AI_MODEL: qwen2.5:1.5b
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/api/test/connection/all"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  frontend:
+    build:
+      context: ./frontend
+      pull: false
+    container_name: fm-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD-SHELL", "wget -q --spider http://127.0.0.1/ || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  ollama_data:
