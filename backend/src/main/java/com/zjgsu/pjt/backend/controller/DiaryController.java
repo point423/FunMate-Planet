@@ -31,6 +31,9 @@ public class DiaryController {
     @Autowired
     private DiaryService diaryService;
 
+    @Autowired
+    private ObjectMapper objectMapper;
+
     /**
      * 终极修复：物理级绕过 Spring 的 Content-Type 检查
      * 彻底解决 "multipart/form-data;...;charset=UTF-8 is not supported"
@@ -92,15 +95,26 @@ public class DiaryController {
         Long currentUserId = Long.valueOf(attr.toString());
 
         try {
+            ObjectMapper mapper = objectMapper;
             ActivityDiary diary = new ActivityDiary();
             diary.setUserId(currentUserId);
-            diary.setContent(request.getParameter("content"));
-            diary.setTitle(request.getParameter("title"));
-            diary.setTags(request.getParameter("tags"));
-            
-            String aid = request.getParameter("activityId");
-            if (aid != null && !aid.trim().isEmpty()) {
-                diary.setActivityId(Long.valueOf(aid));
+
+            if (isJsonRequest(request)) {
+                ActivityDiary requestBody = mapper.readValue(request.getInputStream(), ActivityDiary.class);
+                diary.setContent(requestBody.getContent());
+                diary.setTitle(requestBody.getTitle());
+                diary.setTags(requestBody.getTags());
+                diary.setImages(requestBody.getImages());
+                diary.setActivityId(requestBody.getActivityId());
+            } else {
+                diary.setContent(request.getParameter("content"));
+                diary.setTitle(request.getParameter("title"));
+                diary.setTags(request.getParameter("tags"));
+
+                String aid = request.getParameter("activityId");
+                if (aid != null && !aid.trim().isEmpty()) {
+                    diary.setActivityId(Long.valueOf(aid));
+                }
             }
 
             // 处理参与者ID列表
@@ -109,13 +123,15 @@ public class DiaryController {
             
             List<Long> participantIds = new ArrayList<>();
             if (participantIdsStr != null && !participantIdsStr.trim().isEmpty()) {
-                ObjectMapper mapper = new ObjectMapper();
                 participantIds = mapper.readValue(participantIdsStr, new TypeReference<List<Long>>(){});
                 System.out.println("解析后的参与者ID列表: " + participantIds);
             }
 
             // 处理上传的图片文件
-            List<MultipartFile> files = ((MultipartHttpServletRequest) request).getFiles("files");
+            List<MultipartFile> files = new ArrayList<>();
+            if (request instanceof MultipartHttpServletRequest multipartRequest) {
+                files = multipartRequest.getFiles("files");
+            }
             List<String> imageUrls = new ArrayList<>();
             
             if (files != null && !files.isEmpty()) {
@@ -131,14 +147,15 @@ public class DiaryController {
 
             // 将 URL 列表转为 JSON 字符串存储
             if (!imageUrls.isEmpty()) {
-                ObjectMapper mapper = new ObjectMapper();
                 diary.setImages(mapper.writeValueAsString(imageUrls));
-            } else {
+            } else if (!isJsonRequest(request)) {
                 diary.setImages(null);
             }
 
             // 创建日记并保存参与者信息
-            ActivityDiary saved = diaryService.createDiaryWithParticipants(diary, participantIds);
+            ActivityDiary saved = participantIds.isEmpty()
+                    ? diaryService.createDiary(diary)
+                    : diaryService.createDiaryWithParticipants(diary, participantIds);
             System.out.println("保存后的日记ID: " + saved.getId());
             return Result.created(saved);
         } catch (Exception e) {
@@ -147,6 +164,11 @@ public class DiaryController {
         }
     }
 
+
+    private boolean isJsonRequest(HttpServletRequest request) {
+        String contentType = request.getContentType();
+        return contentType != null && contentType.toLowerCase().contains("application/json");
+    }
 
 
     @GetMapping
