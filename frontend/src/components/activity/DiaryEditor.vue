@@ -4,6 +4,24 @@
       <el-form-item label="Title">
         <el-input v-model="form.title" placeholder="Give your journal a title" />
       </el-form-item>
+
+      <!-- Partner 选择区域 -->
+      <div class="form-field" v-if="partners && partners.length > 0">
+        <label class="field-label">Partners</label>
+        <div class="partner-selector">
+          <div
+            v-for="p in partners"
+            :key="p.id"
+            class="partner-chip"
+            :class="{ selected: selectedPartnerIds.includes(p.id) }"
+            @click="togglePartner(p.id)"
+          >
+            <img :src="p.avatar" class="partner-avatar" />
+            <span class="partner-name">{{ p.nickname }}</span>
+          </div>
+        </div>
+      </div>
+
       <el-form-item label="Photos">
         <div class="photo-grid">
           <div
@@ -42,9 +60,16 @@ import { createDiary } from '@/api/activity'
 import { ElMessage } from 'element-plus'
 
 const visible = defineModel<boolean>()
-const emit    = defineEmits<{ (e: 'saved'): void }>()
+// const emit    = defineEmits<{ (e: 'saved'): void }>()
+const emit = defineEmits(['update:modelValue', 'saved'])
 
-const props   = defineProps<{ activityId: number }>()
+// const props   = defineProps<{ activityId: number }>()
+const props = defineProps<{
+  modelValue: boolean
+  activityId: number
+  partners?: Array<{ id: number; nickname: string; avatar: string }>
+}>()
+const selectedPartnerIds = ref<number[]>([])
 const loading = ref(false)
 const previews = ref<string[]>([])
 const files    = ref<File[]>([])
@@ -54,6 +79,17 @@ const MAX_PHOTO_BYTES = 5 * 1024 * 1024
 const MAX_TOTAL_BYTES = 10 * 1024 * 1024
 
 const form = reactive({ title: '', content: '' })
+
+// 切换选中 Partner 的方法
+const togglePartner = (id: number) => {
+  const index = selectedPartnerIds.value.indexOf(id)
+  if (index > -1) {
+    selectedPartnerIds.value.splice(index, 1)
+  } else {
+    selectedPartnerIds.value.push(id)
+  }
+}
+
 
 const onFileChange = (e: Event) => {
   const input = e.target as HTMLInputElement
@@ -77,8 +113,12 @@ const onFileChange = (e: Event) => {
     files.value.push(f)
     previews.value.push(URL.createObjectURL(f))
   }
-  // reset input so same file can be re-selected later
-  if (input) input.value = ''
+    // reset input so same file can be re-selected later
+// reset input so same file can be re-selected later
+  if (input && input.value) {
+    input.value = ''
+  }
+
 }
 
 const removePhoto = (i: number) => {
@@ -86,10 +126,34 @@ const removePhoto = (i: number) => {
   previews.value.splice(i, 1)
 }
 
+// const submit = async () => {
+//   if (!form.title) { ElMessage.warning('Please enter a title'); return }
+//   loading.value = true
+//   // validate total size before sending
+//   const totalSize = files.value.reduce((s, f) => s + (f.size || 0), 0)
+//   if (totalSize > MAX_TOTAL_BYTES) {
+//     ElMessage.error(`Total upload too large. Limit ${(MAX_TOTAL_BYTES/1024/1024)}MB`)
+//     loading.value = false
+//     return
+//   }
+//   const fd = new FormData()
+//   fd.append('activityId', String(props.activityId))
+//   fd.append('title', form.title)
+//   fd.append('content', form.content)
+//   files.value.forEach(f => fd.append('files', f))
+//   try {
+//     await createDiary(fd)
+//     ElMessage.success('Journal saved!')
+//     visible.value = false
+//     emit('saved')
+//   } finally {
+//     loading.value = false
+//   }
+// }
+
 const submit = async () => {
   if (!form.title) { ElMessage.warning('Please enter a title'); return }
   loading.value = true
-  // validate total size before sending
   const totalSize = files.value.reduce((s, f) => s + (f.size || 0), 0)
   if (totalSize > MAX_TOTAL_BYTES) {
     ElMessage.error(`Total upload too large. Limit ${(MAX_TOTAL_BYTES/1024/1024)}MB`)
@@ -101,16 +165,29 @@ const submit = async () => {
   fd.append('activityId', String(props.activityId))
   fd.append('title', form.title)
   fd.append('content', form.content)
-  files.value.forEach(f => fd.append('photos', f))
+  
+  // 添加参与者信息
+  if (selectedPartnerIds.value && selectedPartnerIds.value.length > 0) {
+    fd.append('participantIds', JSON.stringify(selectedPartnerIds.value))
+    console.log('发送的参与者ID:', selectedPartnerIds.value)
+  }
+  
+  files.value.forEach(f => fd.append('files', f))
   try {
-    await createDiary(fd)
+    const result = await createDiary(fd)
+    console.log('保存结果:', result)
     ElMessage.success('Journal saved!')
     visible.value = false
     emit('saved')
+  } catch (error) {
+    console.error('保存失败:', error)
+    ElMessage.error('保存失败，请重试')
   } finally {
     loading.value = false
   }
 }
+
+
 </script>
 
 <style scoped>
@@ -238,4 +315,44 @@ const submit = async () => {
   border-color: #111 !important;
   color: var(--color-green) !important;
 }
+
+.partner-selector {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.partner-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 20px;
+  border: 1px solid var(--color-border);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.partner-chip:hover {
+  border-color: var(--color-green-border);
+}
+
+.partner-chip.selected {
+  background: rgba(144, 255, 140, 0.15);
+  border-color: var(--color-green);
+}
+
+.partner-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.partner-name {
+  font-size: 13px;
+  color: var(--color-text);
+}
+
+
 </style>

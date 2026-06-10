@@ -59,9 +59,8 @@ export const getLeaderboard = () =>
  * 创建日记/活动回顾
  */
 export const createDiary = (data: FormData) =>
-  request.post('/diaries', data, {
-    headers: { 'Content-Type': 'multipart/form-data' }
-  })
+  request.post('/diaries', data)
+
 
 /**
  * 获取我的日记列表
@@ -76,12 +75,18 @@ export const getDiaryDetail = (id: number) =>
   request.get(`/diaries/${id}`)
 
 /**
+ * 删除日记
+ */
+export const deleteDiary = (id: number) =>
+  request.delete(`/diaries/${id}`)
+
+
+/**
  * 上传图片
  */
 export const uploadImage = (file: File) => {
   const fd = new FormData()
   fd.append('file', file)
-  return request.post<{ url: string }>('/upload/image', fd, {
-    headers: { 'Content-Type': 'multipart/form-data' }
-  })
+  return request.post<{ url: string }>('/upload/image', fd)
 }
+

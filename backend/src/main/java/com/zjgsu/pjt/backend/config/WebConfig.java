@@ -23,12 +23,24 @@ public class WebConfig implements WebMvcConfigurer {
     @Autowired
     private AuthInterceptor authInterceptor;
 
-    @Override
-    public void addInterceptors(InterceptorRegistry registry) {
-        registry.addInterceptor(authInterceptor)
-                .addPathPatterns("/api/**")
-                .excludePathPatterns("/api/auth/login", "/api/auth/register", "/api/ai/test"); // 放行测试接口
-    }
+     @Override
+     public void addInterceptors(InterceptorRegistry registry) {
+         registry.addInterceptor(authInterceptor)
+                 .addPathPatterns("/api/**")
+                 .excludePathPatterns("/api/auth/login", "/api/auth/register", "/api/ai/test"); // 放行测试接口
+     }
+//    @Override
+//    public void addInterceptors(InterceptorRegistry registry) {
+//        registry.addInterceptor(authInterceptor)
+//                .addPathPatterns("/api/**")
+//                .excludePathPatterns(
+//                        "/api/auth/login",
+//                        "/api/auth/register",
+//                        "/api/ai/test",
+//                        "/api/diaries/**"  // 放行日记接口以便测试上传，或者确保前端传了正确的 Token
+//                );
+//    }
+
 
     @Override
     public void addCorsMappings(CorsRegistry registry) {
