@@ -5,6 +5,7 @@ import com.zjgsu.pjt.backend.entity.ActivityParticipant;
 import com.zjgsu.pjt.backend.entity.ActivityReview;
 import com.zjgsu.pjt.backend.entity.User;
 import com.zjgsu.pjt.backend.repository.ActivityParticipantRepository;
+import com.zjgsu.pjt.backend.repository.ActivityDiaryRepository;
 import com.zjgsu.pjt.backend.repository.ActivityRepository;
 import com.zjgsu.pjt.backend.repository.ActivityReviewRepository;
 import com.zjgsu.pjt.backend.repository.UserRepository;
@@ -31,6 +32,9 @@ public class ActivityService {
 
     @Autowired
     private ActivityReviewRepository reviewRepository;
+
+    @Autowired
+    private ActivityDiaryRepository diaryRepository;
 
     public List<Map<String, Object>> getTopParticipants() {
         List<ActivityReview> allReviews = reviewRepository.findAll();
@@ -71,8 +75,43 @@ public class ActivityService {
         return activityRepository.findAll(pageable);
     }
 
+    public Map<String, List<Activity>> getMyActivities(Long userId) {
+        Map<String, List<Activity>> grouped = newActivityGroupMap();
+
+        List<ActivityParticipant> participantRecords = participantRepository.findByUserId(userId);
+        Set<Long> activityIds = participantRecords.stream()
+                .map(ActivityParticipant::getActivityId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+
+        Map<Long, Activity> uniqueActivities = new LinkedHashMap<>();
+        if (!activityIds.isEmpty()) {
+            activityRepository.findByIdIn(activityIds).forEach(activity -> {
+                if (activity.getId() != null) {
+                    uniqueActivities.put(activity.getId(), activity);
+                }
+            });
+        }
+
+        activityRepository.findByCreatorIdAndStatus(userId, 0).forEach(activity -> {
+            if (activity.getId() != null) {
+                uniqueActivities.putIfAbsent(activity.getId(), activity);
+            }
+        });
+
+        uniqueActivities.values().forEach(activity ->
+                grouped.get(resolveActivityGroup(activity.getStatus())).add(activity)
+        );
+
+        return grouped;
+    }
+
     public Activity findById(Long id) {
         return activityRepository.findById(id).orElse(null);
+    }
+
+    public boolean hasJournal(Long activityId) {
+        return diaryRepository.existsByActivityId(activityId);
     }
 
     @Transactional
@@ -149,5 +188,27 @@ public class ActivityService {
                 .map(ActivityParticipant::getUserId)
                 .collect(Collectors.toList());
         return userRepository.findAllById(userIds);
+    }
+
+    private Map<String, List<Activity>> newActivityGroupMap() {
+        Map<String, List<Activity>> grouped = new LinkedHashMap<>();
+        grouped.put("pending", new ArrayList<>());
+        grouped.put("active", new ArrayList<>());
+        grouped.put("completed", new ArrayList<>());
+        grouped.put("cancelled", new ArrayList<>());
+        return grouped;
+    }
+
+    private String resolveActivityGroup(Integer status) {
+        if (status == null || status == 0) {
+            return "pending";
+        }
+        if (status == 1) {
+            return "active";
+        }
+        if (status == 2) {
+            return "completed";
+        }
+        return "cancelled";
     }
 }

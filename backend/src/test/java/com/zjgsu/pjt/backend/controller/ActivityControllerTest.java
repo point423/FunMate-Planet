@@ -14,6 +14,10 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -79,5 +83,51 @@ public class ActivityControllerTest {
                         .header("Authorization", DUMMY_TOKEN))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(403));
+    }
+
+    @Test
+    @DisplayName("4. 鎴戠殑娲诲姩-鎸夌姸鎬佸垎缁勮繑鍥�")
+    void myActivities_ReturnsGroupedActivities() throws Exception {
+        Activity pending = new Activity();
+        pending.setId(10L);
+        pending.setTitle("Pending activity");
+
+        Map<String, List<Activity>> grouped = new LinkedHashMap<>();
+        grouped.put("pending", List.of(pending));
+        grouped.put("active", List.of());
+        grouped.put("completed", List.of());
+        grouped.put("cancelled", List.of());
+
+        when(jwtUtil.getUserIdFromToken(anyString())).thenReturn(1L);
+        when(activityService.getMyActivities(1L)).thenReturn(grouped);
+
+        mockMvc.perform(get("/api/activities/my")
+                        .header("Authorization", DUMMY_TOKEN))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.pending[0].title").value("Pending activity"))
+                .andExpect(jsonPath("$.data.active").isArray())
+                .andExpect(jsonPath("$.data.completed").isArray())
+                .andExpect(jsonPath("$.data.cancelled").isArray());
+    }
+
+    @Test
+    @DisplayName("5. 娲诲姩璇︽儏-杩斿洖hasJournal瀛楁")
+    void detail_ReturnsHasJournal() throws Exception {
+        Activity activity = new Activity();
+        activity.setId(10L);
+        activity.setTitle("Activity with diary");
+
+        when(jwtUtil.getUserIdFromToken(anyString())).thenReturn(1L);
+        when(activityService.findById(10L)).thenReturn(activity);
+        when(activityService.getParticipants(10L)).thenReturn(List.of());
+        when(activityService.hasJournal(10L)).thenReturn(true);
+
+        mockMvc.perform(get("/api/activities/10")
+                        .header("Authorization", DUMMY_TOKEN))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.activity.id").value(10))
+                .andExpect(jsonPath("$.data.participantCount").value(0))
+                .andExpect(jsonPath("$.data.hasJournal").value(true));
     }
 }
