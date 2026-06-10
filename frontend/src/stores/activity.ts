@@ -2,6 +2,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { getMyDiaries, getDiaryDetail } from '@/api/activity'
+import { deleteDiary as deleteDiaryApi } from '@/api/activity'
 import type { Diary } from '@/types/diary'
 import type { Activity } from '@/types/activity'
 
@@ -26,6 +27,10 @@ export const useActivityStore = defineStore('activity', () => {
     activeDiary.value = await getDiaryDetail(id) as Diary
     return activeDiary.value
   }
+  
+  const deleteDiary = async (id: number) => {
+    await deleteDiaryApi(id)
+  }
 
-  return { diaries, activeDiary, currentActivity, fetchDiaries, fetchDiaryDetail }
+  return { diaries, activeDiary, currentActivity, fetchDiaries, fetchDiaryDetail, deleteDiary }
 })

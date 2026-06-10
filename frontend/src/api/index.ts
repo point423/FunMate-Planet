@@ -43,12 +43,22 @@ service.interceptors.request.use(
 )
 
 service.interceptors.response.use(
-  (response: AxiosResponse) => {
+    (response: AxiosResponse) => {
     const { code, message, data } = response.data
     if (code === 200 || code === 201 || code === 0) return data
-    ElMessage.error(message || '请求失败')
+    
+    // 新增：如果是业务逻辑返回的 401，给出明确提示
+    if (code === 401) {
+      ElMessage.error(message || '登录已过期，请重新登录')
+      localStorage.removeItem('token')
+      window.location.href = '/login'
+    } else {
+      ElMessage.error(message || '请求失败')
+    }
+    
     return Promise.reject(new Error(message || '请求失败'))
   },
+
   (error) => {
     if (error.response?.status === 401) {
       localStorage.removeItem('token')

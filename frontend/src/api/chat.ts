@@ -17,10 +17,20 @@ export interface ChatMessagePage {
   pageSize: number
 }
 
+export interface ChatConversationDto {
+  userId: number
+  lastMessage?: string
+  lastMessageTime?: string
+  unreadCount?: number
+}
+
 export const getChatMessages = (targetUserId: number, pageNum = 1, pageSize = 50) =>
   request.get<ChatMessagePage, ChatMessagePage>('/chat/messages', {
     params: { targetUserId, pageNum, pageSize },
   })
+
+export const getChatConversations = () =>
+  request.get<ChatConversationDto[], ChatConversationDto[]>('/chat/conversations')
 
 export const sendChatMessage = (receiverId: number, content: string) =>
   request.post<string, string>('/chat/messages', { receiverId, content })

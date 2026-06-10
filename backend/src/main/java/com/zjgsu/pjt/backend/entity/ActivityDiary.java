@@ -26,6 +26,10 @@ public class ActivityDiary {
     @Column(name = "activity_id")
     private Long activityId;
 
+    @Column(name = "title")
+    private String title;
+
+
     @Column(columnDefinition = "TEXT")
     private String content;
     

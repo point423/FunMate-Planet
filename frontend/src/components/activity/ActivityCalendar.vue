@@ -67,8 +67,11 @@ const cells = computed(() => {
 .cal-arrow { background: none; border: none; color: var(--color-white); font-size: 18px; cursor: pointer; padding: 2px 6px; }
 .cal-label { display: flex; gap: 6px; }
 .cal-select {
-  background: var(--color-surface-2); border: 0.5px solid var(--color-border);
-  color: var(--color-white); border-radius: 6px; padding: 4px 8px; font-size: 12px;
+  background: #f5f5f5; border: 0.5px solid var(--color-border);
+  color: #000; border-radius: 6px; padding: 4px 8px; font-size: 12px;
+}
+.cal-select option {
+  color: #000;
 }
 .cal-grid  { display: grid; grid-template-columns: repeat(7,1fr); gap: 2px; }
 .cal-hdr   { text-align: center; font-size: 10px; color: var(--color-text-secondary); padding: 4px 0; }
