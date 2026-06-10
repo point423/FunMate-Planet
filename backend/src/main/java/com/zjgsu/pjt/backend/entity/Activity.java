@@ -20,6 +20,9 @@ public class Activity {
 
     private String description;
 
+    @Column(name = "plan", columnDefinition = "TEXT")
+    private String plan;
+
     @Column(name = "activity_time")
     private LocalDateTime activityTime;
 

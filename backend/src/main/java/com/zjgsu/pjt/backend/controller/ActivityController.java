@@ -59,6 +59,11 @@ public class ActivityController {
         return Result.success(response);
     }
 
+    @GetMapping("/my")
+    public Result<Map<String, List<Activity>>> myActivities(@RequestAttribute("currentUserId") Long currentUserId) {
+        return new Result<>(200, activityService.getMyActivities(currentUserId), "success");
+    }
+
     @GetMapping("/{id}")
     public Result<Map<String, Object>> detail(@PathVariable Long id) {
         Activity activity = activityService.findById(id);
@@ -69,7 +74,8 @@ public class ActivityController {
         response.put("activity", activity);
         response.put("participants", participants);
         response.put("participantCount", participants.size());
-        
+        response.put("hasJournal", activityService.hasJournal(id));
+
         return Result.success(response);
     }
 
