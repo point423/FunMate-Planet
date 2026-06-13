@@ -55,7 +55,7 @@
               :key="j.id"
               class="jw-thumb"
               :class="{ tall: i === 0 }"
-              @click="router.push(`/activity/journal/${j.id}`)"
+              @click="router.push({ path: '/activity/journal', query: { diaryId: String(j.id) } })"
             >
               <img :src="j.coverImage" :alt="j.title">
             </div>

@@ -37,6 +37,8 @@ export interface JournalThumb {
   id: number
   coverImage: string
   title: string
+  excerpt?: string
+  sharedEntryId?: number
 }
 
 export interface ActivityItem {

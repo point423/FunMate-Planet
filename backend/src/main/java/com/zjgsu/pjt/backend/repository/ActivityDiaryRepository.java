@@ -26,6 +26,17 @@ public interface ActivityDiaryRepository extends JpaRepository<ActivityDiary, Lo
     List<ActivityDiary> findByUserId(Long userId);
     Page<ActivityDiary> findByUserId(Long userId, Pageable pageable);
 
+    @Query(
+            value = "select distinct d from ActivityDiary d " +
+                    "left join ActivityParticipant p on p.activityId = d.activityId " +
+                    "where d.userId = :userId or p.userId = :userId " +
+                    "order by d.createTime desc",
+            countQuery = "select count(distinct d.id) from ActivityDiary d " +
+                    "left join ActivityParticipant p on p.activityId = d.activityId " +
+                    "where d.userId = :userId or p.userId = :userId"
+    )
+    Page<ActivityDiary> findRelevantByUserId(@Param("userId") Long userId, Pageable pageable);
+
     @Query("select case when count(d) > 0 then true else false end " +
             "from Activity a left join ActivityDiary d on d.activityId = a.id " +
             "where a.id = :activityId")
