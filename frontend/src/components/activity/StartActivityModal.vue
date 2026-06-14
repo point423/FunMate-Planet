@@ -233,3 +233,71 @@ const submit = async () => {
   flex: 1;
 }
 </style>
+
+<style>
+.activity-modal {
+  --el-dialog-bg-color: #1a1a1a;
+  --el-dialog-border-color: var(--color-border-dim);
+}
+
+.activity-modal.el-dialog,
+.activity-modal .el-dialog {
+  background-color: #1a1a1a !important;
+}
+
+.activity-modal .el-overlay-dialog {
+  background-color: #1a1a1a !important;
+}
+
+.activity-modal .el-dialog__header {
+  background-color: #1a1a1a !important;
+  border-bottom: 1px solid var(--color-border-dim) !important;
+}
+
+.activity-modal .el-dialog__title {
+  color: #fff !important;
+}
+
+.activity-modal .el-dialog__close {
+  color: var(--color-text-secondary) !important;
+}
+
+.activity-modal .el-dialog__body {
+  background-color: #1a1a1a !important;
+  color: #fff !important;
+}
+
+.activity-modal .el-form {
+  background-color: #1a1a1a !important;
+}
+
+.activity-modal .el-form-item {
+  background-color: transparent !important;
+}
+
+.activity-modal .el-form-item__label {
+  color: #fff !important;
+  background-color: transparent !important;
+}
+
+.activity-modal .el-form-item__content {
+  background-color: transparent !important;
+}
+
+.activity-modal .el-input__wrapper,
+.activity-modal .el-select__wrapper,
+.activity-modal .el-textarea__inner {
+  background-color: #2a2a2a !important;
+  border-color: var(--color-border-dim) !important;
+}
+
+.activity-modal .el-input__inner,
+.activity-modal .el-textarea__inner {
+  color: #fff !important;
+}
+
+.activity-modal .el-dialog__footer {
+  background-color: #1a1a1a !important;
+  border-top: 1px solid var(--color-border-dim) !important;
+}
+</style>

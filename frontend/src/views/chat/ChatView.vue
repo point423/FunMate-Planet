@@ -40,7 +40,7 @@
               <span class="pi-name">{{ partner.nickname }}</span>
               <span class="pi-date">{{ partner.lastMsgDate }}</span>
             </div>
-            <div class="pi-msg">{{ partner.lastMsg || 'No messages yet' }}</div>
+            <div class="pi-msg">{{ partner.lastMsg || EMPTY_LAST_MESSAGE }}</div>
           </div>
         </div>
         <div v-if="filteredPartners.length === 0" class="empty-tip">No partners found</div>
@@ -99,12 +99,26 @@
             placeholder="type here."
             @keydown.enter="sendMessage"
           >
-          <button type="button" class="more-btn" @click="showMoreMenu = !showMoreMenu">+</button>
+          <button
+            type="button"
+            class="more-btn emoji-trigger"
+            :class="{ active: showEmojiPanel }"
+            aria-label="Open emoji collection"
+            @click="showEmojiPanel = !showEmojiPanel"
+          >
+            😊
+          </button>
           <button type="button" class="send-btn" @click="sendMessage">Send</button>
-          <div v-if="showMoreMenu" class="more-menu">
-            <div class="more-item" @click="handleMoreAction('activity')">Start activity</div>
-            <div class="more-item" @click="handleMoreAction('location')">Send location</div>
-            <div class="more-item" @click="handleMoreAction('journal')">Shared journal</div>
+          <div v-if="showEmojiPanel" class="emoji-panel">
+            <button
+              v-for="emoji in emojiCollection"
+              :key="emoji"
+              type="button"
+              class="emoji-item"
+              @click="insertEmoji(emoji)"
+            >
+              {{ emoji }}
+            </button>
           </div>
         </div>
       </template>
@@ -125,7 +139,7 @@
           <ActivityCalendar :event-days="calendarEventDays" />
         </div>
         <div v-if="activeActivity" class="cr-activity">
-          <div class="act-entry-card" role="button" tabindex="0" @click="openActivityJournal">
+          <div class="act-entry-card" role="button" tabindex="0" @click="openActivityDetailCard">
             <img :src="activeActivity.coverImg" alt="activity journal">
             <div class="act-thumb-labels">
               <span class="atl-name">{{ activeActivity.title }}</span>
@@ -133,9 +147,42 @@
             </div>
           </div>
           <div class="cr-activity-intro">{{ activeActivity.intro }}</div>
+          <div class="cr-activity-summary glass-card">
+            <div class="cr-activity-summary-head">
+              <span class="cr-activity-summary-kicker">Current activity</span>
+              <span class="cr-activity-status">{{ activeActivity.statusLabel }}</span>
+            </div>
+            <p class="cr-activity-description">{{ activeActivity.description }}</p>
+            <div class="cr-activity-grid">
+              <div class="cr-activity-item">
+                <span class="cr-activity-label">Location</span>
+                <strong>{{ activeActivity.location }}</strong>
+              </div>
+              <div class="cr-activity-item">
+                <span class="cr-activity-label">Schedule</span>
+                <strong>{{ activeActivity.date }}</strong>
+              </div>
+              <div class="cr-activity-item">
+                <span class="cr-activity-label">People</span>
+                <strong>{{ activeActivity.participantCount }} / {{ activeActivity.maxParticipants }}</strong>
+              </div>
+              <div class="cr-activity-item">
+                <span class="cr-activity-label">Partner</span>
+                <strong>{{ activePartner?.nickname || 'Teammate' }}</strong>
+              </div>
+            </div>
+            <button
+              v-if="activeActivity.activityId || activeActivity.journalId"
+              type="button"
+              class="btn-outline cr-activity-action"
+              @click="openActivityDetailCard"
+            >
+              {{ activeActivity.activityId ? 'View activity detail' : 'Open shared journal' }}
+            </button>
+          </div>
           <div class="cr-activity-meta">Participants: {{ activeActivity.participants.join(', ') }}</div>
         </div>
-        <div v-else class="cr-empty">No active activity</div>
+        <div v-else class="cr-empty">No active activity with this partner</div>
       </template>
 
       <template v-else-if="activeApplication">
@@ -149,8 +196,8 @@
               </div>
               <p class="app-bio">{{ activeApplication.fromUser.bio || 'This partner has not added a bio yet.' }}</p>
               <div v-if="activeApplication.type === 'friend'" class="app-tags">
-                <span v-for="tag in activeApplication.fromUser.tags" :key="tag" class="tag-chip active">
-                  {{ tag }}
+                <span v-for="tag in applicationDisplayTags" :key="tag.value" class="tag-chip active">
+                  <span>{{ tag.emoji }}</span>{{ tag.label }}
                 </span>
               </div>
             </div>
@@ -179,27 +226,32 @@
               <h3 class="app-section-title">Journal</h3>
               <div class="app-journal-wall">
                 <div
-                  v-for="journal in activeApplication.fromUser.publicJournals"
+                  v-for="journal in applicationPublicJournals"
                   :key="journal.id"
                   class="app-jw-thumb"
+                  role="button"
+                  tabindex="0"
+                  @click="openApplicationJournal(journal)"
+                  @keydown.enter.prevent="openApplicationJournal(journal)"
+                  @keydown.space.prevent="openApplicationJournal(journal)"
                 >
                   <img :src="journal.coverImage" :alt="journal.title">
                 </div>
-                <div v-if="activeApplication.fromUser.publicJournals.length === 0" class="app-empty-tip">No journals yet</div>
+                <div v-if="applicationPublicJournals.length === 0" class="app-empty-tip">No journals yet</div>
               </div>
             </div>
 
             <div class="app-section glass-card">
               <h3 class="app-section-title">Activities</h3>
               <div class="app-act-list">
-                <div v-for="activity in activeApplication.fromUser.recentActivities" :key="activity.id" class="app-act-row">
+                <div v-for="activity in applicationRecentActivities" :key="activity.id" class="app-act-row">
                   <span class="app-act-icon">{{ activity.icon }}</span>
                   <div class="app-act-row-info">
                     <div class="app-act-row-name">{{ activity.name }}</div>
                   </div>
                   <span class="app-act-date">{{ activity.date }}</span>
                 </div>
-                <div v-if="activeApplication.fromUser.recentActivities.length === 0" class="app-empty-tip">No activities yet</div>
+                <div v-if="applicationRecentActivities.length === 0" class="app-empty-tip">No activities yet</div>
               </div>
             </div>
           </div>
@@ -281,6 +333,39 @@
         </div>
       </div>
     </el-dialog>
+
+    <el-dialog
+      v-model="applicationJournalVisible"
+      class="journal-card-dialog"
+      width="520px"
+      align-center
+      :show-close="true"
+      destroy-on-close
+    >
+      <article v-if="selectedApplicationJournal && selectedApplicationJournalOwner" class="shared-card mine app-journal-card">
+        <div class="shared-card-head">
+          <div class="shared-user">
+            <img :src="selectedApplicationJournalOwner.avatar || '/default-avatar.png'" :alt="selectedApplicationJournalOwner.nickname" class="shared-avatar">
+            <div class="shared-meta">
+              <strong>{{ selectedApplicationJournalOwner.nickname }}</strong>
+              <span>Shared card</span>
+            </div>
+          </div>
+          <span v-if="selectedApplicationJournal.sharedEntryId" class="shared-updated">#{{ selectedApplicationJournal.sharedEntryId }}</span>
+        </div>
+
+        <div class="app-journal-title">{{ selectedApplicationJournal.title || 'Untitled Journal' }}</div>
+        <p class="shared-text">{{ selectedApplicationJournal.excerpt || 'No journal entry yet.' }}</p>
+        <div class="shared-images" v-if="selectedApplicationJournal.coverImage">
+          <el-image
+            :src="selectedApplicationJournal.coverImage"
+            class="shared-image"
+            :preview-src-list="[selectedApplicationJournal.coverImage]"
+            fit="cover"
+          />
+        </div>
+      </article>
+    </el-dialog>
   </div>
 </template>
 
@@ -289,8 +374,9 @@ import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } 
 import { MoreFilled, Search } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import ActivityCalendar from '@/components/activity/ActivityCalendar.vue'
-import { createActivity, getActivityInvitations, handleActivityInvitation } from '@/api/activity'
+import { createActivity, getActivityDetail, getActivityInvitations, getMyActivities, handleActivityInvitation } from '@/api/activity'
 import { getChatConversations, getChatMessages, sendChatMessage } from '@/api/chat'
+import type { ChatMessageDto } from '@/api/chat'
 import {
   getFriendApplications,
   getFriends,
@@ -301,25 +387,30 @@ import {
 } from '@/api/user'
 import { useUserStore } from '@/stores/user'
 import { useRouter } from 'vue-router'
-import type { Activity, ActivityInvitationPayload } from '@/types/activity'
-import type { NearbyUser } from '@/types/user'
+import type { Activity, ActivityDetailResponse, ActivityInvitationPayload, ActivityStatus } from '@/types/activity'
+import type { JournalThumb, NearbyUser } from '@/types/user'
+import { getTagMeta } from '@/utils/tags'
 
 const userStore = useUserStore()
 const router = useRouter()
+const EMPTY_LAST_MESSAGE = 'No messages yet'
 const myAvatar = computed(() => userStore.userInfo?.avatar || '/default-avatar.png')
 
 const tab = ref<'partners' | 'applications'>('partners')
 const searchQ = ref('')
 const activeId = ref<number | null>(null)
 const inputText = ref('')
-const showMoreMenu = ref(false)
+const showEmojiPanel = ref(false)
 const msgsEl = ref<HTMLElement | null>(null)
 const startActivityVisible = ref(false)
 const addPartnerVisible = ref(false)
+const applicationJournalVisible = ref(false)
 const partnerSearchQ = ref('')
 const searchedPartner = ref<NearbyUser | null>(null)
 const partnerSearchLoading = ref(false)
 const partnerSearchDone = ref(false)
+const selectedApplicationJournal = ref<JournalThumb | null>(null)
+const selectedApplicationJournalOwner = ref<Pick<NearbyUser, 'nickname' | 'avatar'> | null>(null)
 
 interface PartnerItem {
   id: number
@@ -341,12 +432,20 @@ interface MsgItem {
 }
 
 interface ActivityEntry {
+  activityId?: number
   journalId?: number
   title: string
   date: string
+  scheduledAt: string
   coverImg: string
   intro: string
   participants: string[]
+  participantIds: number[]
+  location: string
+  statusLabel: string
+  participantCount: number
+  maxParticipants: number
+  description: string
 }
 
 interface ApplicationItem {
@@ -365,6 +464,7 @@ const applications = ref<ApplicationItem[]>([])
 const activeApplication = ref<ApplicationItem | null>(null)
 const msgMap = ref<Record<number, MsgItem[]>>({})
 const partnerActivityOverrides = ref<Record<number, ActivityEntry>>({})
+const sharedPartnerActivities = ref<Record<number, ActivityEntry>>({})
 let messagePollTimer: number | null = null
 
 const activityDraft = reactive({
@@ -375,15 +475,40 @@ const activityDraft = reactive({
   maxParticipants: 2,
 })
 
+const emojiCollection = [
+  '😀', '😂', '🥰', '😎', '😭', '😴', '🥳', '🤔',
+  '👍', '👏', '🙏', '💪', '🔥', '✨', '🌟', '💚',
+  '🍻', '☕', '🎵', '🎮', '🏀', '🚲', '📚', '🌿',
+]
+
 const activePartner = computed(() => partners.value.find((partner) => partner.id === activeId.value) ?? null)
 const messages = computed(() => (activeId.value ? msgMap.value[activeId.value] ?? [] : []))
 const filteredPartners = computed(() =>
   partners.value.filter((partner) => partner.nickname.toLowerCase().includes(searchQ.value.toLowerCase())),
 )
+const applicationPublicJournals = computed(() => activeApplication.value?.fromUser.publicJournals ?? [])
+const applicationRecentActivities = computed(() => activeApplication.value?.fromUser.recentActivities ?? [])
+const applicationDisplayTags = computed(() => {
+  const tags = activeApplication.value?.fromUser.tags as unknown
+  const normalizedTags = Array.isArray(tags)
+    ? tags
+    : typeof tags === 'string'
+      ? tags.split(/(?:[;,]+|，|、)/)
+      : []
+
+  return normalizedTags
+    .map(tag => String(tag).trim())
+    .filter(Boolean)
+    .map(getTagMeta)
+})
 
 const activeActivity = computed<ActivityEntry | null>(() => {
   const partner = activePartner.value
   if (!partner) return null
+
+  const sharedActivity = sharedPartnerActivities.value[partner.id]
+  if (sharedActivity) return sharedActivity
+
   const override = partnerActivityOverrides.value[partner.id]
   if (override) return override
 
@@ -396,14 +521,21 @@ const activeActivity = computed<ActivityEntry | null>(() => {
     journalId: journal.id,
     title: journal.title || activity.name || `${partner.nickname}'s shared journal`,
     date: activity.date,
+    scheduledAt: activity.date,
     coverImg: journal.coverImage,
     intro: `A shared activity journal created by ${myName} and ${partner.nickname}.`,
     participants: [myName, partner.nickname],
+    participantIds: [Number(userStore.userInfo?.id ?? 0), partner.id].filter(Boolean),
+    location: 'Shared journal',
+    statusLabel: 'Shared',
+    participantCount: 2,
+    maxParticipants: 2,
+    description: 'Open the shared journal to revisit what you and your partner have done together.',
   }
 })
 
 const calendarEventDays = computed(() => {
-  const value = activeActivity.value?.date
+  const value = activeActivity.value?.scheduledAt
   if (!value) return []
   const parsed = new Date(value)
   return Number.isNaN(parsed.getTime()) ? [] : [parsed.getDate()]
@@ -463,6 +595,69 @@ const formatMsgTime = (value: unknown) => {
   return date.toLocaleString()
 }
 
+const activityStatusLabel = (status: ActivityStatus | number | undefined) => {
+  const map: Record<number, string> = {
+    0: 'Pending',
+    1: 'Active',
+    2: 'Completed',
+    3: 'Cancelled',
+  }
+  return map[Number(status ?? 1)] ?? 'Active'
+}
+
+const buildSharedActivityEntry = (activity: Activity, detail: ActivityDetailResponse): ActivityEntry => {
+  const participantIds = (detail.participants ?? []).map((participant) => Number(participant.id)).filter(Boolean)
+  const participantNames = (detail.participants ?? []).map((participant) => participant.nickname).filter(Boolean)
+  const currentPartnerId = participantIds.find((id) => id !== Number(userStore.userInfo?.id ?? 0))
+  const currentPartner = partners.value.find((partner) => partner.id === currentPartnerId)
+  const partnerName = currentPartner?.nickname || participantNames.find((name) => name !== userStore.userInfo?.nickname) || 'your partner'
+
+  return {
+    activityId: activity.id,
+    title: activity.title || `${partnerName}'s activity`,
+    date: formatMsgTime(activity.activityTime) || 'Time TBD',
+    scheduledAt: activity.activityTime,
+    coverImg: currentPartner?.publicJournals?.[0]?.coverImage || currentPartner?.avatar || '/default-avatar.png',
+    intro: `You and ${partnerName} are currently doing this activity together.`,
+    participants: participantNames,
+    participantIds,
+    location: activity.location || 'Location TBD',
+    statusLabel: activityStatusLabel(activity.status),
+    participantCount: detail.participantCount ?? participantIds.length,
+    maxParticipants: activity.maxParticipants || detail.participantCount || participantIds.length || 2,
+    description: activity.description?.trim() || 'No detailed introduction has been added for this activity yet.',
+  }
+}
+
+const refreshSharedActivities = async () => {
+  try {
+    const grouped = await getMyActivities()
+    const activeActivities = [...(grouped.active ?? [])].sort(
+      (left, right) => new Date(right.activityTime).getTime() - new Date(left.activityTime).getTime(),
+    )
+
+    const details = await Promise.allSettled(
+      activeActivities.map(async (activity) => ({
+        activity,
+        detail: await getActivityDetail(activity.id),
+      })),
+    )
+
+    const nextMap: Record<number, ActivityEntry> = {}
+    details.forEach((entry) => {
+      if (entry.status !== 'fulfilled') return
+      const activityEntry = buildSharedActivityEntry(entry.value.activity, entry.value.detail)
+      const partnerIds = activityEntry.participantIds.filter((id) => id !== Number(userStore.userInfo?.id ?? 0))
+      partnerIds.forEach((partnerId) => {
+        if (!nextMap[partnerId]) nextMap[partnerId] = activityEntry
+      })
+    })
+    sharedPartnerActivities.value = nextMap
+  } catch {
+    sharedPartnerActivities.value = {}
+  }
+}
+
 const getLocalMessages = (partnerId: number): MsgItem[] => {
   try {
     const userId = userStore.userInfo?.id
@@ -482,6 +677,43 @@ const saveLocalMessages = (partnerId: number, messagesToSave: MsgItem[]) => {
   } catch {
     // Ignore local storage failures.
   }
+}
+
+const normalizeBackendMessages = (list: ChatMessageDto[]) =>
+  list
+    .slice()
+    .sort((a, b) => new Date(a.createTime).getTime() - new Date(b.createTime).getTime())
+    .map((item) => ({
+      id: item.id,
+      content: String(item.content ?? ''),
+      mine: Number(item.senderId) === Number(userStore.userInfo?.id),
+      timestamp: formatMsgTime(item.createTime),
+    }))
+
+const getLastCachedMessage = (partnerId: number) => {
+  const localMessages = getLocalMessages(partnerId)
+  return localMessages[localMessages.length - 1]
+}
+
+const preloadPartnerLastMessages = async () => {
+  const partnersWithoutSummary = partners.value.filter((partner) => partner.lastMsg === EMPTY_LAST_MESSAGE)
+
+  await Promise.allSettled(partnersWithoutSummary.map(async (partner) => {
+    const data = await getChatMessages(partner.id, 1, 1000)
+    const list = Array.isArray(data?.list) ? data.list : []
+    const backendMessages = normalizeBackendMessages(list)
+    if (backendMessages.length === 0) return
+
+    const localMessages = getLocalMessages(partner.id)
+    const merged = [...localMessages]
+    backendMessages.forEach((message) => {
+      if (!merged.some((existing) => existing.id === message.id)) merged.push(message)
+    })
+
+    msgMap.value[partner.id] = merged
+    saveLocalMessages(partner.id, merged)
+    updatePartnerLastMessage(partner.id, merged)
+  }))
 }
 
 const loadPartners = async () => {
@@ -505,20 +737,24 @@ const loadPartners = async () => {
       const id = Number(friend.id ?? 0)
       const detail = await toNearbyUser(id, friend)
       const conversation = conversationMap.get(id)
+      const cachedMessage = getLastCachedMessage(id)
       return {
         id,
         nickname: detail.nickname,
         avatar: detail.avatar || '/default-avatar.png',
-        lastMsg: conversation?.lastMessage || 'No messages yet',
-        lastMsgDate: formatMsgTime(conversation?.lastMessageTime),
+        lastMsg: conversation?.lastMessage || cachedMessage?.content || EMPTY_LAST_MESSAGE,
+        lastMsgDate: conversation?.lastMessageTime ? formatMsgTime(conversation.lastMessageTime) : cachedMessage?.timestamp || '',
         distance: detail.distance,
         score: detail.score,
         publicJournals: detail.publicJournals,
         recentActivities: detail.recentActivities,
       }
     }))
+    await preloadPartnerLastMessages()
+    await refreshSharedActivities()
   } catch {
     partners.value = []
+    sharedPartnerActivities.value = {}
   }
 }
 
@@ -582,16 +818,7 @@ const loadMessages = async (partnerId: number) => {
     const localMessages = getLocalMessages(partnerId)
     const data = await getChatMessages(partnerId, 1, 100)
     const list = Array.isArray(data?.list) ? data.list : []
-
-    const backendMessages = list
-      .slice()
-      .sort((a, b) => new Date(a.createTime).getTime() - new Date(b.createTime).getTime())
-      .map((item) => ({
-        id: item.id,
-        content: String(item.content ?? ''),
-        mine: Number(item.senderId) === Number(userStore.userInfo?.id),
-        timestamp: formatMsgTime(item.createTime),
-      }))
+    const backendMessages = normalizeBackendMessages(list)
 
     const merged = [...localMessages]
     backendMessages.forEach((message) => {
@@ -654,7 +881,7 @@ const sendMessage = async () => {
   try {
     await sendChatMessage(targetId, content)
     inputText.value = ''
-    showMoreMenu.value = false
+    showEmojiPanel.value = false
     await loadMessages(targetId)
     await loadPartners()
   } catch {
@@ -668,7 +895,7 @@ const sendMessage = async () => {
     saveLocalMessages(targetId, msgMap.value[targetId])
     updatePartnerLastMessage(targetId, msgMap.value[targetId])
     inputText.value = ''
-    showMoreMenu.value = false
+    showEmojiPanel.value = false
   }
 }
 
@@ -677,6 +904,7 @@ const acceptApplication = async (application: ApplicationItem) => {
     if (application.type === 'activity') {
       await handleActivityInvitation(application.id, true)
       ElMessage.success('Activity invitation accepted.')
+      await refreshSharedActivities()
     } else {
       await handleFriendRequest(application.id, true)
       ElMessage.success(`${application.fromUser.nickname} is now your partner!`)
@@ -709,19 +937,9 @@ const declineApplication = async (application: ApplicationItem) => {
   }
 }
 
-const handleMoreAction = (action: string) => {
-  showMoreMenu.value = false
-  if (action === 'activity') {
-    if (!activePartner.value) return
-    activityDraft.name = `${activePartner.value.nickname}'s activity`
-    activityDraft.location = 'TBD'
-    activityDraft.description = `Activity with ${activePartner.value.nickname}`
-    activityDraft.maxParticipants = 2
-    startActivityVisible.value = true
-    return
-  }
-  if (action === 'location') ElMessage.info('Location sharing coming soon')
-  else ElMessage.info('Shared journal coming soon')
+const insertEmoji = (emoji: string) => {
+  inputText.value = `${inputText.value}${emoji}`
+  showEmojiPanel.value = false
 }
 
 const resetActivityDraft = () => {
@@ -761,11 +979,19 @@ const confirmStartActivity = async () => {
     })
 
     partnerActivityOverrides.value[activePartner.value.id] = {
+      activityId: activity.id,
       title,
       date: formatMsgTime(activity.activityTime || activityDraft.startTime),
+      scheduledAt: activity.activityTime || activityDraft.startTime,
       coverImg: activePartner.value.publicJournals?.[0]?.coverImage || activePartner.value.avatar,
       intro: `${title} is waiting for ${activePartner.value.nickname} to accept.`,
       participants: [userStore.userInfo?.nickname || 'Me', activePartner.value.nickname],
+      participantIds: [Number(userStore.userInfo?.id ?? 0), activePartner.value.id].filter(Boolean),
+      location,
+      statusLabel: 'Pending',
+      participantCount: 1,
+      maxParticipants: Number(activityDraft.maxParticipants || 2),
+      description: description || 'Waiting for your partner to accept this activity invitation.',
     }
 
     startActivityVisible.value = false
@@ -777,9 +1003,23 @@ const confirmStartActivity = async () => {
   }
 }
 
-const openActivityJournal = () => {
+const openActivityDetailCard = () => {
+  if (activeActivity.value?.activityId) {
+    router.push(`/activity/${activeActivity.value.activityId}`)
+    return
+  }
   if (!activeActivity.value?.journalId) return
   router.push({ path: '/activity/journal', query: { diaryId: String(activeActivity.value.journalId) } })
+}
+
+const openApplicationJournal = (journal: JournalThumb) => {
+  if (!activeApplication.value) return
+  selectedApplicationJournal.value = journal
+  selectedApplicationJournalOwner.value = {
+    nickname: activeApplication.value.fromUser.nickname,
+    avatar: activeApplication.value.fromUser.avatar,
+  }
+  applicationJournalVisible.value = true
 }
 
 const openAddPartnerDialog = () => {
@@ -1215,6 +1455,12 @@ onBeforeUnmount(stopMessagePolling)
   font-size: 18px;
 }
 
+.more-btn.active,
+.more-btn:hover {
+  border-color: var(--color-green-border);
+  background: rgba(0, 255, 149, 0.12);
+}
+
 .send-btn,
 .btn-green,
 .btn-accept {
@@ -1228,27 +1474,36 @@ onBeforeUnmount(stopMessagePolling)
   cursor: pointer;
 }
 
-.more-menu {
+.emoji-panel {
   position: absolute;
   bottom: calc(100% + 8px);
-  right: 16px;
-  background: var(--color-card-solid);
+  right: 86px;
+  width: 240px;
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 6px;
+  padding: 10px;
+  background: rgba(12, 14, 16, 0.96);
   border: 0.5px solid var(--color-border);
-  border-radius: var(--radius-md);
-  overflow: hidden;
+  border-radius: 18px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(14px);
 }
 
-.more-item {
-  padding: 11px 18px;
-  font-size: 13px;
+.emoji-item {
+  width: 100%;
+  aspect-ratio: 1;
+  border: none;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  font-size: 18px;
   cursor: pointer;
-  white-space: nowrap;
+  transition: transform 0.15s ease, background 0.15s ease;
 }
 
-.more-item:hover {
-  background: var(--color-surface-2);
-  color: var(--color-green);
+.emoji-item:hover {
+  transform: translateY(-1px) scale(1.08);
+  background: rgba(0, 255, 149, 0.18);
 }
 
 .chat-empty,
@@ -1357,6 +1612,69 @@ onBeforeUnmount(stopMessagePolling)
   line-height: 1.6;
 }
 
+.cr-activity-summary {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.cr-activity-summary-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.cr-activity-summary-kicker,
+.cr-activity-label {
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+.cr-activity-status {
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: rgba(0, 255, 149, 0.14);
+  color: var(--color-green);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.cr-activity-description {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.7;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.cr-activity-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.cr-activity-item {
+  padding: 12px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cr-activity-item strong {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--color-text);
+}
+
+.cr-activity-action {
+  width: 100%;
+}
+
 .cr-activity-meta {
   font-size: 11px;
   color: var(--color-text-secondary);
@@ -1459,12 +1777,28 @@ onBeforeUnmount(stopMessagePolling)
   overflow: hidden;
   background: #333;
   aspect-ratio: 1;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: border-color 0.2s, transform 0.2s;
 }
 
 .app-jw-thumb img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  transition: transform 0.2s;
+}
+
+.app-jw-thumb:hover,
+.app-jw-thumb:focus-visible {
+  border-color: rgba(0, 255, 149, 0.45);
+  transform: translateY(-1px);
+  outline: none;
+}
+
+.app-jw-thumb:hover img,
+.app-jw-thumb:focus-visible img {
+  transform: scale(1.06);
 }
 
 .app-act-list {
@@ -1530,6 +1864,108 @@ onBeforeUnmount(stopMessagePolling)
 :deep(.activity-dialog .el-dialog__body) {
   padding: 0;
   background-color: #0a0a0a !important;
+}
+
+:deep(.journal-card-dialog) {
+  --el-dialog-bg-color: rgba(18, 20, 22, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 22px;
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.48);
+}
+
+:deep(.journal-card-dialog .el-dialog__header) {
+  padding: 0;
+}
+
+:deep(.journal-card-dialog .el-dialog__body) {
+  padding: 18px;
+}
+
+.shared-card {
+  background: var(--color-surface-1);
+  border: 1px solid var(--color-border);
+  border-radius: 18px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.shared-card.mine {
+  border-color: rgba(0, 255, 149, 0.26);
+  box-shadow: 0 10px 24px rgba(0, 255, 149, 0.08);
+}
+
+.app-journal-card {
+  background: linear-gradient(145deg, rgba(26, 30, 29, 0.98), rgba(14, 16, 18, 0.98));
+}
+
+.shared-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.shared-user {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.shared-avatar {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.shared-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.shared-meta strong {
+  font-size: 15px;
+  color: var(--color-text);
+}
+
+.shared-meta span,
+.shared-updated {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.app-journal-title {
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--color-text);
+  line-height: 1.35;
+}
+
+.shared-text {
+  margin: 0;
+  min-height: 120px;
+  padding: 14px;
+  border-radius: 14px;
+  background: rgba(0, 0, 0, 0.18);
+  color: #d0d0d0;
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+
+.shared-images {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 10px;
+}
+
+.shared-image {
+  width: 100%;
+  height: 180px;
+  object-fit: cover;
+  border-radius: 12px;
 }
 
 .activity-form-card {
@@ -1647,5 +2083,11 @@ onBeforeUnmount(stopMessagePolling)
 
 .cr-empty.small {
   min-height: 120px;
+}
+
+@media (max-width: 720px) {
+  .cr-activity-grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

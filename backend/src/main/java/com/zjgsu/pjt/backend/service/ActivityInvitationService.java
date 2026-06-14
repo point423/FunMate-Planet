@@ -63,8 +63,8 @@ public class ActivityInvitationService {
         }
 
         boolean areFriends =
-                friendshipRepository.findByUserIdAndFriendId(senderId, receiverId) != null &&
-                friendshipRepository.findByUserIdAndFriendId(receiverId, senderId) != null;
+                !friendshipRepository.findAllByUserIdAndFriendId(senderId, receiverId).isEmpty() &&
+                !friendshipRepository.findAllByUserIdAndFriendId(receiverId, senderId).isEmpty();
         if (!areFriends) {
             throw new IllegalArgumentException("You can only invite existing friends.");
         }

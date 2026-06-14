@@ -20,6 +20,7 @@ public class UserProfileResponse {
 
     private Integer activities = 0;
     private Double score = 0.0;
+    private Integer reviewCount = 0;
     private Object ranking = "--";
 
     private Double distance = 0.0;

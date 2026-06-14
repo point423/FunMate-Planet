@@ -10,7 +10,7 @@
           @click="selectJournal(journal.id)"
         >
           <div class="jc-img">
-            <img :src="journal.coverImage || coverFromImages(journal.images)" :alt="journal.title">
+            <img :src="resolveDiaryCover(journal)" :alt="journal.title">
           </div>
           <div class="jc-body">
             <div class="jc-title">{{ journal.title || journal.content || 'Untitled Journal' }}</div>
@@ -51,6 +51,15 @@
         </div>
 
         <div class="jd-content">
+          <div class="jd-content-hero">
+            <div v-if="myUploadedCoverImage" class="jd-content-cover">
+              <img :src="myUploadedCoverImage" :alt="activeDiary.title || 'My Journal Cover'">
+            </div>
+            <h3 class="jd-content-title">
+              {{ activeDiary.title || activeDiary.content || 'Shared Journal' }}
+            </h3>
+          </div>
+
           <div class="ai-summary-card" :class="{ 'is-loading': aiLoading }">
             <div class="ai-header">
               <span class="ai-title">AI Summary</span>
@@ -99,21 +108,39 @@
                   placeholder="Write what this activity felt like..."
                 />
                 <div class="shared-images" v-if="parseImages(entryDrafts[item.user.id].images).length > 0">
-                  <el-image
+                  <div
                     v-for="(image, index) in parseImages(entryDrafts[item.user.id].images)"
-                    :key="index"
-                    :src="image"
-                    class="shared-image"
-                    :preview-src-list="parseImages(entryDrafts[item.user.id].images)"
-                  />
+                    :key="`${item.user.id}-${index}`"
+                    class="shared-image-item"
+                  >
+                    <el-image
+                      :src="image"
+                      class="shared-image"
+                      :preview-src-list="parseImages(entryDrafts[item.user.id].images)"
+                      :preview-teleported="true"
+                    />
+                    <button
+                      type="button"
+                      class="shared-image-remove"
+                      aria-label="Remove image"
+                      @click.stop="removeDraftImage(item.user.id, index)"
+                    >
+                      ×
+                    </button>
+                  </div>
                 </div>
                 <label class="shared-upload">
                   <span>Add images</span>
                   <input type="file" accept="image/*" multiple hidden @change="(event) => onEntryFileChange(event, item.user.id)">
                 </label>
-                <button class="save-btn" type="button" :disabled="savingUserId === item.user.id" @click="saveMyEntry(item.user.id)">
-                  {{ savingUserId === item.user.id ? 'Saving...' : 'Save My Card' }}
-                </button>
+                <div class="mine-card-actions">
+                  <button class="mine-card-btn primary" type="button" :disabled="savingUserId === item.user.id" @click="saveMyEntry(item.user.id)">
+                    {{ savingUserId === item.user.id ? 'Saving...' : 'Save My Card' }}
+                  </button>
+                  <button class="mine-card-btn secondary" type="button" :disabled="sharingUserId === item.user.id" @click="shareMyEntry(item.user.id)">
+                    {{ sharingUserId === item.user.id ? 'Sharing...' : 'Share to Profile' }}
+                  </button>
+                </div>
               </template>
 
               <template v-else>
@@ -125,6 +152,7 @@
                     :src="image"
                     class="shared-image"
                     :preview-src-list="parseImages(item.entry.images)"
+                    :preview-teleported="true"
                   />
                 </div>
               </template>
@@ -164,7 +192,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Delete } from '@element-plus/icons-vue'
 import DiaryEditor from '@/components/activity/DiaryEditor.vue'
-import { getActivityAiSummary, updateMySharedDiaryEntry, uploadImage } from '@/api/activity'
+import { getActivityAiSummary, getDiaryDetail, shareMySharedDiaryEntry, updateMySharedDiaryEntry, uploadImage } from '@/api/activity'
 import { useActivityStore } from '@/stores/activity'
 import { useUserStore } from '@/stores/user'
 import { formatDate } from '@/utils/format'
@@ -183,8 +211,10 @@ const displayText = ref('')
 const sharedEntries = ref<SharedDiaryEntryPayload[]>([])
 const entryDrafts = ref<Record<number, { content: string; images: string[] | string }>>({})
 const savingUserId = ref<number | null>(null)
+const sharingUserId = ref<number | null>(null)
 const injectedDiary = ref<any | null>(null)
 const deletingDiaryId = ref<number | null>(null)
+const diaryDetailCache = ref<Record<number, any>>({})
 
 const parseImages = (images: any): string[] => {
   if (!images) return []
@@ -213,13 +243,38 @@ const normalizeDiary = (raw: any) => {
   }
 }
 
+const normalizeDiaryDetailPayload = (raw: any) => {
+  if (!raw) return null
+  const diary = raw.diary || raw
+  const participants = raw.participants || diary.participants || []
+  const sharedEntries = raw.sharedEntries || diary.sharedEntries || []
+
+  return normalizeDiary({
+    ...diary,
+    participants,
+    sharedEntries,
+  })
+}
+
+const cacheDiaryDetail = (raw: any) => {
+  const normalized = normalizeDiaryDetailPayload(raw)
+  if (normalized?.id) {
+    diaryDetailCache.value = {
+      ...diaryDetailCache.value,
+      [normalized.id]: normalized,
+    }
+  }
+  return normalized
+}
+
 const diaries = computed(() => {
   const diariesList = actStore.diaries
   const normalized = (!diariesList || !Array.isArray(diariesList) ? [] : diariesList)
     .map((item: any) => {
       const diary = item.diary || item
+      const cachedDiary = diaryDetailCache.value[Number(diary.id)]
       const participants = item.participants || diary.participants || []
-      return normalizeDiary({
+      return cachedDiary || normalizeDiary({
         ...diary,
         participants,
         sharedEntries: diary.sharedEntries || [],
@@ -227,11 +282,15 @@ const diaries = computed(() => {
     })
     .filter(Boolean)
 
-  if (injectedDiary.value && !normalized.some((item: any) => item.id === injectedDiary.value.id)) {
+  if (!injectedDiary.value) {
+    return normalized
+  }
+
+  if (!normalized.some((item: any) => item.id === injectedDiary.value.id)) {
     return [injectedDiary.value, ...normalized]
   }
 
-  return normalized
+  return normalized.map((item: any) => (item.id === injectedDiary.value.id ? injectedDiary.value : item))
 })
 
 const activeDiary = computed(() => actStore.activeDiary || diaries.value.find((diary: any) => diary.id === activeId.value) || null)
@@ -245,9 +304,51 @@ const detailCoverImage = computed(() => {
 const coverFromImages = (images: any) =>
   parseImages(images)[0] || 'https://images.unsplash.com/photo-1517486808906-6ca8b3f04846?q=80&w=400'
 
+const findMySharedEntry = (diary: any) => {
+  const currentUserId = Number(userStore.userInfo?.id ?? 0)
+  if (!currentUserId) return null
+
+  const entries = Array.isArray(diary?.sharedEntries) ? diary.sharedEntries : []
+  return entries.find((item: SharedDiaryEntryPayload) => Number(item.user?.id ?? item.entry?.userId ?? 0) === currentUserId) ?? null
+}
+
+const getMyUploadedCoverFromDiary = (diary: any, preferDraft = false) => {
+  const myEntry = findMySharedEntry(diary)
+  if (!myEntry) return ''
+
+  if (preferDraft) {
+    const draftImages = parseImages(entryDrafts.value[myEntry.user.id]?.images)
+    if (draftImages.length > 0) return draftImages[0]
+  }
+
+  const uploadedImages = parseImages(myEntry.entry?.images)
+  return uploadedImages[0] || ''
+}
+
+const resolveDiaryCover = (diary: any) =>
+  getMyUploadedCoverFromDiary(diary) || diary.coverImage || coverFromImages(diary.images)
+
+const myUploadedCoverImage = computed(() => getMyUploadedCoverFromDiary(activeDiary.value, true) || '')
+
 const fallbackAvatar = (seed: number) => `https://api.dicebear.com/7.x/avataaars/svg?seed=${seed}`
 
 const isMine = (userId: number) => userStore.userInfo?.id === userId
+
+const preloadDiaryCovers = async () => {
+  const diaryIds = diaries.value
+    .map((diary: any) => Number(diary.id))
+    .filter(Boolean)
+
+  const missingIds = diaryIds.filter((id) => !diaryDetailCache.value[id])
+  if (missingIds.length === 0) return
+
+  const detailResults = await Promise.allSettled(missingIds.map((id) => getDiaryDetail(id)))
+  detailResults.forEach((result) => {
+    if (result.status === 'fulfilled') {
+      cacheDiaryDetail(result.value)
+    }
+  })
+}
 
 const hydrateSharedEntries = (diary: any) => {
   const entries = Array.isArray(diary?.sharedEntries) ? diary.sharedEntries : []
@@ -297,7 +398,7 @@ const selectJournal = async (id: number) => {
   activeId.value = id
   try {
     const detail = await actStore.fetchDiaryDetail(id)
-    const normalized = normalizeDiary(detail)
+    const normalized = cacheDiaryDetail(detail)
     if (normalized) {
       injectedDiary.value = normalized
       hydrateSharedEntries(normalized)
@@ -339,6 +440,7 @@ const ensureInitialSelection = async () => {
 
 const onSaved = async () => {
   await actStore.fetchDiaries()
+  await preloadDiaryCovers()
   const newestDiary = diaries.value[0]
   if (newestDiary?.id) {
     await selectJournal(newestDiary.id)
@@ -363,6 +465,13 @@ const onEntryFileChange = async (event: Event, userId: number) => {
   }
 }
 
+const removeDraftImage = (userId: number, imageIndex: number) => {
+  const currentImages = parseImages(entryDrafts.value[userId]?.images)
+  if (currentImages.length === 0) return
+
+  entryDrafts.value[userId].images = currentImages.filter((_, index) => index !== imageIndex)
+}
+
 const saveMyEntry = async (userId: number) => {
   if (!activeId.value || !entryDrafts.value[userId]) return
 
@@ -373,7 +482,7 @@ const saveMyEntry = async (userId: number) => {
       images: parseImages(entryDrafts.value[userId].images),
     })
     const detail = await actStore.fetchDiaryDetail(activeId.value)
-    const normalized = normalizeDiary(detail)
+    const normalized = cacheDiaryDetail(detail)
     if (normalized) {
       injectedDiary.value = normalized
       hydrateSharedEntries(normalized)
@@ -384,6 +493,20 @@ const saveMyEntry = async (userId: number) => {
     ElMessage.error('Failed to update your shared card.')
   } finally {
     savingUserId.value = null
+  }
+}
+
+const shareMyEntry = async (userId: number) => {
+  if (!activeId.value) return
+
+  sharingUserId.value = userId
+  try {
+    await shareMySharedDiaryEntry(activeId.value)
+    ElMessage.success('Shared to your profile journal wall.')
+  } catch {
+    ElMessage.error('Failed to share your card.')
+  } finally {
+    sharingUserId.value = null
   }
 }
 
@@ -398,6 +521,9 @@ const handleDelete = async () => {
 
     activeId.value = null
     injectedDiary.value = null
+    diaryDetailCache.value = Object.fromEntries(
+      Object.entries(diaryDetailCache.value).filter(([key]) => Number(key) !== deletedId),
+    )
     sharedEntries.value = []
     entryDrafts.value = {}
     router.replace({ name: 'Journal', query: {} })
@@ -432,6 +558,7 @@ watch(
 
 onMounted(async () => {
   await actStore.fetchDiaries()
+  await preloadDiaryCovers()
   await ensureInitialSelection()
 })
 </script>
@@ -534,6 +661,34 @@ onMounted(async () => {
 
 .jd-content { padding: 24px; display: flex; flex-direction: column; gap: 24px; }
 
+.jd-content-hero {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.jd-content-cover {
+  border-radius: 20px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.jd-content-cover img {
+  width: 100%;
+  max-height: 320px;
+  display: block;
+  object-fit: cover;
+}
+
+.jd-content-title {
+  margin: 0;
+  font-size: 28px;
+  line-height: 1.15;
+  font-weight: 700;
+  color: #f6f6f6;
+}
+
 .ai-summary-card {
   background: rgba(0, 255, 149, 0.05);
   border: 1px solid rgba(0, 255, 149, 0.2);
@@ -612,11 +767,40 @@ onMounted(async () => {
   gap: 10px;
 }
 
+.shared-image-item {
+  position: relative;
+}
+
 .shared-image {
   width: 100%;
   height: 110px;
   object-fit: cover;
   border-radius: 10px;
+}
+
+.shared-image-remove {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.72);
+  color: #fff;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.shared-image-remove:hover {
+  transform: scale(1.05);
+  background: rgba(255, 92, 92, 0.92);
 }
 
 .shared-upload {
@@ -631,17 +815,42 @@ onMounted(async () => {
   cursor: pointer;
 }
 
-.save-btn {
-  height: 40px;
-  border: none;
-  border-radius: 12px;
-  background: var(--color-green);
-  color: #111;
-  font-weight: 700;
-  cursor: pointer;
+.mine-card-actions {
+  display: flex;
+  gap: 10px;
 }
 
-.save-btn:disabled { opacity: 0.6; cursor: default; }
+.mine-card-btn {
+  flex: 1;
+  height: 40px;
+  border-radius: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.mine-card-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.mine-card-btn.primary {
+  border: none;
+  background: var(--color-green);
+  color: #111;
+}
+
+.mine-card-btn.secondary {
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--color-text);
+}
+
+.mine-card-btn.secondary:hover:not(:disabled) {
+  border-color: rgba(0, 255, 149, 0.34);
+  background: rgba(0, 255, 149, 0.08);
+}
+
+.mine-card-btn:disabled { opacity: 0.6; cursor: default; }
 
 .jd-footer {
   padding: 0 24px 24px;
@@ -650,6 +859,14 @@ onMounted(async () => {
 .typewriter {
   border-right: 2px solid var(--color-green);
   animation: blink 0.7s infinite;
+}
+
+:deep(.el-image-viewer__wrapper) {
+  z-index: 4000 !important;
+}
+
+:deep(.el-image-viewer__btn) {
+  z-index: 4001 !important;
 }
 
 @keyframes blink { 50% { border-color: transparent; } }

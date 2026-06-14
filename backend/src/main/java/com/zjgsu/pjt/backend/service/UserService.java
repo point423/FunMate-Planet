@@ -8,6 +8,7 @@ import com.zjgsu.pjt.backend.entity.User;
 import com.zjgsu.pjt.backend.repository.ActivityParticipantRepository;
 import com.zjgsu.pjt.backend.repository.ActivityRepository;
 import com.zjgsu.pjt.backend.repository.SharedJournalShowcaseRepository;
+import com.zjgsu.pjt.backend.repository.UserEvaluationRepository;
 import com.zjgsu.pjt.backend.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.geo.Point;
@@ -40,6 +41,9 @@ public class UserService {
 
     @Autowired
     private ActivityRepository activityRepository;
+
+    @Autowired
+    private UserEvaluationRepository userEvaluationRepository;
 
     private static final String GEO_KEY = "user:location";
 
@@ -123,13 +127,29 @@ public class UserService {
         profile.setLongitude(user.getLongitude());
         profile.setLatitude(user.getLatitude());
         profile.setCreatedAt(user.getCreateTime() != null ? user.getCreateTime().toString() : "");
-        profile.setScore(user.getAverageScore() != null ? user.getAverageScore() : 0.0);
+        FeedbackStats feedbackStats = buildFeedbackStats(user.getId());
+        profile.setScore(feedbackStats.positiveRate());
+        profile.setReviewCount(feedbackStats.reviewCount());
         profile.setTags(parseTags(user.getTags()));
         profile.setPublicJournals(buildPublicJournals(user.getId()));
         profile.setRecentActivities(buildRecentActivities(user.getId()));
         profile.setActivities(profile.getRecentActivities().size());
         return profile;
     }
+
+    private FeedbackStats buildFeedbackStats(Long userId) {
+        var evaluations = userEvaluationRepository.findByTargetId(userId);
+        int total = (int) evaluations.stream()
+                .filter(evaluation -> evaluation.getScoreLevel() != null)
+                .count();
+        long positive = evaluations.stream()
+                .filter(evaluation -> evaluation.getScoreLevel() != null && evaluation.getScoreLevel() == 3)
+                .count();
+        double positiveRate = total == 0 ? 0.0 : Math.round((positive * 1000.0 / total)) / 10.0;
+        return new FeedbackStats(positiveRate, total);
+    }
+
+    private record FeedbackStats(Double positiveRate, Integer reviewCount) {}
 
     private List<String> parseTags(String rawTags) {
         if (rawTags == null || rawTags.isBlank()) return List.of();
