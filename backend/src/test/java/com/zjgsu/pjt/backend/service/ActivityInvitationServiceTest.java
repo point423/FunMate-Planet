@@ -62,8 +62,8 @@ public class ActivityInvitationServiceTest {
 
         when(activityRepository.findById(10L)).thenReturn(Optional.of(activity));
         when(userRepository.findById(2L)).thenReturn(Optional.of(invitee));
-        when(friendshipRepository.findByUserIdAndFriendId(1L, 2L)).thenReturn(new Friendship());
-        when(friendshipRepository.findByUserIdAndFriendId(2L, 1L)).thenReturn(new Friendship());
+        when(friendshipRepository.findAllByUserIdAndFriendId(1L, 2L)).thenReturn(List.of(new Friendship()));
+        when(friendshipRepository.findAllByUserIdAndFriendId(2L, 1L)).thenReturn(List.of(new Friendship()));
         when(participantRepository.findByActivityIdAndUserId(10L, 2L)).thenReturn(Optional.empty());
         when(invitationRepository.findByActivityIdAndReceiverIdAndStatus(10L, 2L, "pending")).thenReturn(Optional.empty());
         when(invitationRepository.save(any(ActivityInvitation.class))).thenAnswer(invocation -> invocation.getArgument(0));

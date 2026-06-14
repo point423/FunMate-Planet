@@ -1,6 +1,11 @@
 package com.zjgsu.pjt.backend.service;
 
+import com.zjgsu.pjt.backend.dto.UserProfileResponse;
 import com.zjgsu.pjt.backend.entity.User;
+import com.zjgsu.pjt.backend.repository.ActivityParticipantRepository;
+import com.zjgsu.pjt.backend.repository.ActivityRepository;
+import com.zjgsu.pjt.backend.repository.SharedJournalShowcaseRepository;
+import com.zjgsu.pjt.backend.repository.UserEvaluationRepository;
 import com.zjgsu.pjt.backend.repository.UserRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -31,6 +36,18 @@ public class UserServiceTest {
     @Mock
     private GeoOperations<String, String> geoOperations;
 
+    @Mock
+    private SharedJournalShowcaseRepository sharedJournalShowcaseRepository;
+
+    @Mock
+    private ActivityParticipantRepository activityParticipantRepository;
+
+    @Mock
+    private ActivityRepository activityRepository;
+
+    @Mock
+    private UserEvaluationRepository userEvaluationRepository;
+
     @InjectMocks
     private UserService userService;
 
@@ -40,8 +57,9 @@ public class UserServiceTest {
         User user = new User();
         user.setId(1L);
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        mockEmptyProfileData();
 
-        User result = userService.findById(1L);
+        UserProfileResponse result = userService.findById(1L);
         assertNotNull(result);
         assertEquals(1L, result.getId());
     }
@@ -103,7 +121,9 @@ public class UserServiceTest {
     @DisplayName("6. 查询所有用户-列表不为空")
     void getAllUsers_ReturnsList() {
         when(userRepository.findAll()).thenReturn(Collections.singletonList(new User()));
-        List<User> result = userService.getAllUsers();
+        mockEmptyProfileData();
+
+        List<UserProfileResponse> result = userService.getAllUsers();
         assertEquals(1, result.size());
     }
 
@@ -128,5 +148,12 @@ public class UserServiceTest {
         when(userRepository.findById(1L)).thenReturn(Optional.empty());
         User result = userService.updateProfile(1L, new User());
         assertNull(result);
+    }
+
+    private void mockEmptyProfileData() {
+        when(userEvaluationRepository.findByTargetId(any())).thenReturn(Collections.emptyList());
+        when(sharedJournalShowcaseRepository.findByUserIdOrderByCreateTimeDesc(any())).thenReturn(Collections.emptyList());
+        when(activityParticipantRepository.findByUserId(any())).thenReturn(Collections.emptyList());
+        when(activityRepository.findByIdIn(any())).thenReturn(Collections.emptyList());
     }
 }

@@ -8,8 +8,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.PageRequest;
 
 import java.util.Collections;
 import java.util.Optional;
@@ -30,7 +28,7 @@ public class FriendshipServiceTest {
     @Test
     @DisplayName("测试关注用户-成功")
     void follow_New_Success() {
-        when(friendshipRepository.findByUserIdAndFriendId(1L, 2L)).thenReturn(null);
+        when(friendshipRepository.findAllByUserIdAndFriendId(1L, 2L)).thenReturn(Collections.emptyList());
         String result = friendshipService.follow(1L, 2L, true);
         assertEquals("关注成功", result);
         verify(friendshipRepository).save(any(Friendship.class));
@@ -40,10 +38,10 @@ public class FriendshipServiceTest {
     @DisplayName("测试取消关注")
     void unfollow_Success() {
         Friendship f = new Friendship();
-        when(friendshipRepository.findByUserIdAndFriendId(1L, 2L)).thenReturn(f);
+        when(friendshipRepository.findAllByUserIdAndFriendId(1L, 2L)).thenReturn(Collections.singletonList(f));
         String result = friendshipService.follow(1L, 2L, false);
         assertEquals("已取消关注", result);
-        verify(friendshipRepository).delete(f);
+        verify(friendshipRepository).deleteAll(Collections.singletonList(f));
     }
 
     @Test
