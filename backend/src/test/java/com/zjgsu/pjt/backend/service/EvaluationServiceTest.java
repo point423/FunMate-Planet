@@ -31,8 +31,8 @@ public class EvaluationServiceTest {
     private EvaluationService evaluationService;
 
     @Test
-    @DisplayName("测试用户评价逻辑-自动更新平均分")
-    void evaluate_Success_UpdatesUserScore() {
+    @DisplayName("测试用户评价逻辑-自动更新好评率")
+    void evaluate_Success_UpdatesUserPositiveRate() {
         UserEvaluation evaluation = new UserEvaluation();
         evaluation.setTargetId(1L);
         evaluation.setScoreLevel(3);
@@ -47,7 +47,7 @@ public class EvaluationServiceTest {
 
         verify(evaluationRepository).save(evaluation);
         verify(userRepository).save(target);
-        assertEquals(3.0, target.getAverageScore());
+        assertEquals(100.0, target.getAverageScore());
     }
 
     @Test
