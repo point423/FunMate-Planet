@@ -1,76 +1,93 @@
 <template>
   <div class="journal-detail" v-if="diary">
-    <!-- 顶部封面 -->
     <div class="jd-cover">
-      <img :src="diary.coverImage || 'https://images.unsplash.com/photo-1517486808906-6ca8b3f04846?q=80&w=800'" :alt="diary.title">
+      <img :src="coverImage" :alt="diary.title || 'Shared Journal Cover'">
       <div class="jd-cover-overlay">
-        <h2 class="jd-title">{{ diary.title || '活动回顾' }}</h2>
+        <h2 class="jd-title">{{ diary.title || 'Shared Journal' }}</h2>
         <div class="jd-meta-tags">
-          <span class="m-tag">📍 {{ diary.location || '未知地点' }}</span>
-          <span class="m-tag">📅 {{ formatDate(diary.createTime) }}</span>
+          <span class="m-tag">{{ diary.location || 'Unknown location' }}</span>
+          <span class="m-tag">{{ formatDate(diary.createTime) }}</span>
         </div>
       </div>
     </div>
 
     <div class="jd-content">
-      <!-- 1. AI 总结板块 (带打字机效果) -->
       <div class="ai-summary-card" :class="{ 'is-loading': aiLoading }">
         <div class="ai-header">
-          <span class="ai-icon">✨</span>
-          <span class="ai-title">AI 星球观察者</span>
-          <el-button
-            size="small"
-            type="primary"
-            round
-            @click="generateAiSummary"
-            :loading="aiLoading"
-          >
-            {{ aiSummary ? '重新生成' : '开启 AI 回忆录' }}
+          <span class="ai-title">AI Summary</span>
+          <el-button size="small" type="primary" round :loading="aiLoading" @click="generateAiSummary">
+            {{ aiSummary ? 'Regenerate' : 'Generate Summary' }}
           </el-button>
         </div>
         <div class="ai-body">
           <p v-if="displayText" class="ai-text typewriter">{{ displayText }}</p>
-          <p v-else-if="aiLoading" class="ai-placeholder">正在深度解析本次社交能量...</p>
-          <p v-else class="ai-placeholder">点击上方按钮，生成本次活动的 AI 专属总结。</p>
+          <p v-else-if="aiLoading" class="ai-placeholder">Summarizing this shared moment...</p>
+          <p v-else class="ai-placeholder">Generate an AI summary for this shared journal.</p>
         </div>
       </div>
 
-      <!-- 2. 评价搭子 -->
       <div class="section-header">
-        <span class="section-title">评价你的搭子</span>
-        <span class="section-desc">好评会让对方在排行榜上更亮眼哦</span>
+        <span class="section-title">Shared Journal</span>
+        <span class="section-desc">Each participant keeps one card. You can only edit your own.</span>
       </div>
 
-      <div class="participants-list">
-        <div v-for="p in otherParticipants" :key="p.userId" class="p-card">
-          <el-avatar :size="50" :src="p.avatar" />
-          <div class="p-info">
-            <div class="p-name">{{ p.nickname }}</div>
-            <el-rate
-              v-model="p.userRating"
-              @change="(val) => handleRate(p.userId, val)"
-              :colors="['#99A9BF', '#F7BA2A', '#FF9900']"
-            />
+      <div class="shared-grid">
+        <article
+          v-for="item in sharedEntries"
+          :key="item.user.id"
+          class="shared-card"
+          :class="{ mine: isMine(item.user.id) }"
+        >
+          <div class="shared-card-head">
+            <div class="shared-user">
+              <img
+                :src="item.user.avatar || fallbackAvatar(item.user.id)"
+                :alt="item.user.nickname"
+                class="shared-avatar"
+              >
+              <div class="shared-meta">
+                <strong>{{ item.user.nickname }}</strong>
+                <span>{{ isMine(item.user.id) ? 'Your card' : 'Read only' }}</span>
+              </div>
+            </div>
+            <span class="shared-updated">{{ formatDate(item.entry.updateTime || item.entry.createTime) }}</span>
           </div>
-        </div>
-        <div v-if="otherParticipants.length === 0" class="no-data">本次活动只有你自己哦~</div>
-      </div>
 
-      <!-- 3. 活动日记内容 -->
-      <div class="section-header">
-        <span class="section-title">活动记录</span>
-      </div>
-      <div class="diary-body">
-        <div class="diary-text">{{ diary.content || '暂无文字记录' }}</div>
-        <div class="diary-images" v-if="parsedImages.length">
-          <el-image
-            v-for="(img, idx) in parsedImages"
-            :key="idx"
-            :src="img"
-            class="diary-img"
-            :preview-src-list="parsedImages"
-          />
-        </div>
+          <template v-if="isMine(item.user.id)">
+            <textarea
+              v-model="entryDrafts[item.user.id].content"
+              class="shared-editor"
+              placeholder="Write what this activity felt like..."
+            />
+            <div class="shared-images" v-if="parseImages(entryDrafts[item.user.id].images).length > 0">
+              <img
+                v-for="(image, index) in parseImages(entryDrafts[item.user.id].images)"
+                :key="index"
+                :src="image"
+                class="shared-image"
+              >
+            </div>
+            <label class="shared-upload">
+              <span>Add images</span>
+              <input type="file" accept="image/*" multiple hidden @change="(event) => onEntryFileChange(event, item.user.id)">
+            </label>
+            <button class="save-btn" type="button" :disabled="savingUserId === item.user.id" @click="saveMyEntry(item.user.id)">
+              {{ savingUserId === item.user.id ? 'Saving...' : 'Save My Card' }}
+            </button>
+          </template>
+
+          <template v-else>
+            <p class="shared-text">{{ item.entry.content || 'No journal entry yet.' }}</p>
+            <div class="shared-images" v-if="parseImages(item.entry.images).length > 0">
+              <img
+                v-for="(image, index) in parseImages(item.entry.images)"
+                :key="index"
+                :src="image"
+                class="shared-image"
+              >
+            </div>
+          </template>
+        </article>
       </div>
     </div>
   </div>
@@ -81,49 +98,56 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { useActivityStore } from '@/stores/activity'
+import { getActivityAiSummary, getDiaryDetail, updateMySharedDiaryEntry, uploadImage } from '@/api/activity'
 import { useUserStore } from '@/stores/user'
-import { getActivityAiSummary, reviewParticipant } from '@/api/activity'
 import { formatDate } from '@/utils/format'
+import type { SharedDiaryEntryPayload } from '@/types/diary'
 
 const route = useRoute()
-const actStore = useActivityStore()
 const userStore = useUserStore()
 
 const diary = ref<any>(null)
+const sharedEntries = ref<SharedDiaryEntryPayload[]>([])
+const entryDrafts = ref<Record<number, { content: string; images: string[] | string }>>({})
+const savingUserId = ref<number | null>(null)
+
 const aiLoading = ref(false)
 const aiSummary = ref('')
 const displayText = ref('')
 
-// 过滤掉自己
-const otherParticipants = computed(() => {
-  if (!diary.value || !diary.value.participants) return []
-  return diary.value.participants
-    .filter(p => p.userId !== userStore.userInfo?.id)
-    .map(p => ({ ...p, userRating: 0 }))
+const coverImage = computed(() => {
+  const images = parseImages(diary.value?.images)
+  return images[0] || 'https://images.unsplash.com/photo-1517486808906-6ca8b3f04846?q=80&w=800'
 })
 
-const parsedImages = computed(() => {
-  if (!diary.value?.images) return []
-  try {
-    const imgs = typeof diary.value.images === 'string' ? JSON.parse(diary.value.images) : diary.value.images
-    return Array.isArray(imgs) ? imgs : [imgs]
-  } catch {
-    return [diary.value.images]
+const parseImages = (images: any): string[] => {
+  if (!images) return []
+  if (Array.isArray(images)) return images.filter(Boolean)
+  if (typeof images === 'string') {
+    try {
+      const parsed = JSON.parse(images)
+      return Array.isArray(parsed) ? parsed.filter(Boolean) : [images]
+    } catch {
+      return images.split(',').filter(Boolean)
+    }
   }
-})
+  return []
+}
 
-// 打字机效果
+const fallbackAvatar = (seed: number) => `https://api.dicebear.com/7.x/avataaars/svg?seed=${seed}`
+
+const isMine = (userId: number) => userStore.userInfo?.id === userId
+
 const typewriter = (text: string) => {
   displayText.value = ''
-  let i = 0
+  let index = 0
   const timer = setInterval(() => {
-    if (i < text.length) {
-      displayText.value += text.charAt(i)
-      i++
+    if (index < text.length) {
+      displayText.value += text.charAt(index)
+      index += 1
     } else {
       clearInterval(timer)
     }
@@ -131,85 +155,225 @@ const typewriter = (text: string) => {
 }
 
 const generateAiSummary = async () => {
-  const id = diary.value.activityId || Number(route.params.id)
+  const activityId = diary.value?.activityId || Number(route.params.id)
   aiLoading.value = true
   try {
-    const res = await getActivityAiSummary(id) as any
-    // 假设后端 Result.data 是字符串
-    aiSummary.value = typeof res === 'string' ? res : (res.data || 'AI 总结生成失败')
+    const response = await getActivityAiSummary(activityId) as any
+    aiSummary.value = typeof response === 'string' ? response : (response.data || 'Failed to generate summary')
     typewriter(aiSummary.value)
-  } catch (e) {
-    ElMessage.error('AI 正在开小差，请稍后再试')
+  } catch {
+    ElMessage.error('AI summary failed.')
   } finally {
     aiLoading.value = false
   }
 }
 
-const handleRate = async (targetId: number, rating: number) => {
-  const activityId = diary.value.activityId
+const hydrateEntryDrafts = () => {
+  const drafts: Record<number, { content: string; images: string[] | string }> = {}
+  sharedEntries.value.forEach((item) => {
+    drafts[item.user.id] = {
+      content: item.entry?.content || '',
+      images: parseImages(item.entry?.images),
+    }
+  })
+  entryDrafts.value = drafts
+}
+
+const loadDiary = async () => {
+  const id = Number(route.params.id)
+  if (!id) return
+  const result = await getDiaryDetail(id) as any
+  diary.value = result.diary
+  sharedEntries.value = Array.isArray(result.sharedEntries) ? result.sharedEntries : []
+  hydrateEntryDrafts()
+}
+
+const onEntryFileChange = async (event: Event, userId: number) => {
+  const input = event.target as HTMLInputElement
+  const files = Array.from(input.files ?? [])
+  if (files.length === 0) return
+
   try {
-    await reviewParticipant(activityId, {
-      revieweeId: targetId,
-      rating: rating,
-      comment: '来自日记回顾页的评价'
-    })
-    ElMessage.success('评价成功，感谢参与！')
-  } catch (e) {
-    ElMessage.error('评价提交失败')
+    const uploaded = await Promise.all(files.map((file) => uploadImage(file)))
+    const current = parseImages(entryDrafts.value[userId]?.images)
+    entryDrafts.value[userId].images = [...current, ...uploaded.map((item) => item.url)]
+  } catch {
+    ElMessage.error('Image upload failed.')
+  } finally {
+    input.value = ''
   }
 }
 
-onMounted(async () => {
-  const id = Number(route.params.id)
-  if (id) {
-    diary.value = await actStore.fetchDiaryDetail(id)
+const saveMyEntry = async (userId: number) => {
+  const diaryId = Number(route.params.id)
+  if (!diaryId || !entryDrafts.value[userId]) return
+
+  savingUserId.value = userId
+  try {
+    await updateMySharedDiaryEntry(diaryId, {
+      content: entryDrafts.value[userId].content,
+      images: parseImages(entryDrafts.value[userId].images),
+    })
+    await loadDiary()
+    ElMessage.success('Your shared journal card was updated.')
+  } catch {
+    ElMessage.error('Failed to update your shared card.')
+  } finally {
+    savingUserId.value = null
   }
-})
+}
+
+onMounted(loadDiary)
 </script>
 
 <style scoped>
 .journal-detail { height: 100%; overflow-y: auto; background: var(--color-bg); color: #eee; }
-.jd-cover { height: 260px; position: relative; overflow: hidden; }
+.jd-cover { height: 280px; position: relative; overflow: hidden; }
 .jd-cover img { width: 100%; height: 100%; object-fit: cover; }
 .jd-cover-overlay {
   position: absolute; bottom: 0; left: 0; right: 0; padding: 40px 24px 20px;
-  background: linear-gradient(transparent, rgba(0,0,0,0.9));
+  background: linear-gradient(transparent, rgba(0,0,0,0.92));
 }
-.jd-title { font-size: 28px; font-weight: bold; margin: 0; color: #fff; }
-.jd-meta-tags { display: flex; gap: 15px; margin-top: 10px; opacity: 0.8; }
-.m-tag { font-size: 13px; color: rgba(255,255,255,0.8); }
+.jd-title { font-size: 30px; font-weight: 700; margin: 0; color: #fff; }
+.jd-meta-tags { display: flex; gap: 15px; margin-top: 10px; opacity: 0.85; flex-wrap: wrap; }
+.m-tag { font-size: 13px; color: rgba(255,255,255,0.82); }
 
 .jd-content { padding: 24px; display: flex; flex-direction: column; gap: 24px; }
 
-/* AI Card */
 .ai-summary-card {
   background: rgba(0, 255, 149, 0.05);
   border: 1px solid rgba(0, 255, 149, 0.2);
-  border-radius: 16px; padding: 20px;
+  border-radius: 16px;
+  padding: 20px;
 }
-.ai-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
-.ai-title { font-weight: bold; color: var(--color-green); font-size: 15px; }
+.ai-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; gap: 12px; }
+.ai-title { font-weight: 700; color: var(--color-green); font-size: 15px; }
 .ai-text { font-size: 14px; line-height: 1.8; color: #ddd; white-space: pre-wrap; }
 .ai-placeholder { color: #666; font-size: 13px; font-style: italic; }
 
-.section-header { border-left: 4px solid var(--color-green); padding-left: 12px; margin-top: 10px; }
-.section-title { font-size: 16px; font-weight: bold; display: block; }
-.section-desc { font-size: 11px; color: #888; margin-top: 2px; }
+.section-header { border-left: 4px solid var(--color-green); padding-left: 12px; }
+.section-title { font-size: 16px; font-weight: 700; display: block; }
+.section-desc { font-size: 11px; color: #888; margin-top: 4px; display: block; }
 
-.participants-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
-.p-card {
-  background: var(--color-surface-1); padding: 12px; border-radius: 12px;
-  display: flex; align-items: center; gap: 12px; border: 1px solid var(--color-border);
+.shared-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
 }
-.p-info { flex: 1; }
-.p-name { font-size: 13px; font-weight: 500; margin-bottom: 4px; }
 
-.diary-body { background: var(--color-surface-1); padding: 20px; border-radius: 12px; }
-.diary-text { font-size: 15px; line-height: 1.6; color: #ccc; margin-bottom: 15px; }
-.diary-images { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; }
-.diary-img { border-radius: 8px; height: 120px; width: 100%; }
+.shared-card {
+  background: var(--color-surface-1);
+  border: 1px solid var(--color-border);
+  border-radius: 18px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
 
-.no-data { text-align: center; color: #666; padding: 20px; font-size: 13px; }
+.shared-card.mine {
+  border-color: rgba(0, 255, 149, 0.26);
+  box-shadow: 0 10px 24px rgba(0, 255, 149, 0.08);
+}
+
+.shared-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.shared-user {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.shared-avatar {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.shared-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.shared-meta strong {
+  font-size: 15px;
+}
+
+.shared-meta span,
+.shared-updated {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.shared-editor {
+  min-height: 140px;
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid var(--color-border);
+  background: rgba(0,0,0,0.18);
+  color: #e8e8e8;
+  resize: vertical;
+  line-height: 1.6;
+}
+
+.shared-text {
+  margin: 0;
+  min-height: 140px;
+  padding: 14px;
+  border-radius: 14px;
+  background: rgba(0,0,0,0.18);
+  color: #d0d0d0;
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+
+.shared-images {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 10px;
+}
+
+.shared-image {
+  width: 100%;
+  height: 110px;
+  object-fit: cover;
+  border-radius: 10px;
+}
+
+.shared-upload {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 12px;
+  border: 1px dashed var(--color-border);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.save-btn {
+  height: 40px;
+  border: none;
+  border-radius: 12px;
+  background: var(--color-green);
+  color: #111;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.save-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
 .jd-loading { padding: 40px; }
 
 .typewriter {

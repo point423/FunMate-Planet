@@ -11,10 +11,12 @@
     </div>
     <p class="uc-bio">{{ user.bio }}</p>
     <div class="uc-tags">
-      <span v-for="tag in displayTags" :key="tag" class="tag-chip active">{{ tag }}</span>
+      <span v-for="tag in displayTags" :key="tag.value" class="tag-chip active">
+        <span>{{ tag.emoji }}</span>{{ tag.label }}
+      </span>
     </div>
     <div class="uc-footer">
-      <span class="uc-score">{{ user.activities }} activities · {{ formatScore(user.score) }}</span>
+      <span class="uc-score">{{ user.activities }} activities · {{ formatScore(user.score, user.reviewCount) }}</span>
       <button class="btn-more" @click.stop="emit('detail', user)">more info.</button>
     </div>
   </div>
@@ -24,6 +26,7 @@
 import { computed } from 'vue'
 import type { NearbyUser } from '@/types/user'
 import { formatDistance, formatScore } from '@/utils/format'
+import { getTagMeta } from '@/utils/tags'
 
 const props = defineProps<{ user: NearbyUser }>()
 const emit = defineEmits<{
@@ -32,10 +35,18 @@ const emit = defineEmits<{
 }>()
 
 const displayTags = computed(() => {
-  const tags = props.user.tags
-  if (Array.isArray(tags)) return tags.slice(0, 3)
-  if (typeof tags === 'string') return tags.split(/[，,]/).map(tag => tag.trim()).filter(Boolean).slice(0, 3)
-  return []
+  const tags = props.user.tags as unknown
+  const normalizedTags = Array.isArray(tags)
+    ? tags
+    : typeof tags === 'string'
+      ? tags.split(/(?:[;,]+|，|、)/)
+      : []
+
+  return normalizedTags
+    .map(tag => String(tag).trim())
+    .filter(Boolean)
+    .slice(0, 3)
+    .map(getTagMeta)
 })
 </script>
 

@@ -18,9 +18,9 @@ public class FriendshipService {
 
     @Transactional
     public String follow(Long userId, Long friendId, boolean follow) {
-        Friendship existing = friendshipRepository.findByUserIdAndFriendId(userId, friendId);
+        var existing = friendshipRepository.findAllByUserIdAndFriendId(userId, friendId);
         if (follow) {
-            if (existing == null) {
+            if (existing.isEmpty()) {
                 Friendship f = new Friendship();
                 f.setUserId(userId);
                 f.setFriendId(friendId);
@@ -28,8 +28,8 @@ public class FriendshipService {
             }
             return "关注成功";
         } else {
-            if (existing != null) {
-                friendshipRepository.delete(existing);
+            if (!existing.isEmpty()) {
+                friendshipRepository.deleteAll(existing);
             }
             return "已取消关注";
         }

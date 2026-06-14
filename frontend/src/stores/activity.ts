@@ -12,7 +12,7 @@ export const useActivityStore = defineStore('activity', () => {
   const currentActivity = ref<Activity | null>(null)
 
   const fetchDiaries = async () => {
-    const result = await getMyDiaries() as any
+    const result = await getMyDiaries({ pageNum: 1, pageSize: 100 }) as any
     // 后端返回的是分页对象，数据在 content 字段中
     if (result && Array.isArray(result.content)) {
       diaries.value = result.content
@@ -24,12 +24,23 @@ export const useActivityStore = defineStore('activity', () => {
   }
 
   const fetchDiaryDetail = async (id: number) => {
-    activeDiary.value = await getDiaryDetail(id) as Diary
+    const result = await getDiaryDetail(id) as any
+    activeDiary.value = result?.diary
+      ? {
+          ...result.diary,
+          participants: result.participants ?? [],
+          sharedEntries: result.sharedEntries ?? [],
+        }
+      : result as Diary
     return activeDiary.value
   }
   
   const deleteDiary = async (id: number) => {
     await deleteDiaryApi(id)
+    if (activeDiary.value?.id === id) {
+      activeDiary.value = null
+    }
+    diaries.value = diaries.value.filter((diary) => diary.id !== id)
   }
 
   return { diaries, activeDiary, currentActivity, fetchDiaries, fetchDiaryDetail, deleteDiary }

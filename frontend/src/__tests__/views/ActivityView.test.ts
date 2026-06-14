@@ -1,146 +1,61 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
-import ActivityView from '@/views/activity/ActivityView.vue'
 import * as VueRouter from 'vue-router'
+import ActivityView from '@/views/activity/ActivityView.vue'
 
 vi.mock('vue-router')
 
 describe('ActivityView.vue', () => {
-  let mockRouter: any
-  let mockRoute: any
+  let mockRouter: { push: ReturnType<typeof vi.fn> }
+  let mockRoute: { path: string }
 
   beforeEach(() => {
-    mockRouter = {
-      push: vi.fn(),
-    }
-    mockRoute = {
-      path: '/activity/journal',
-    }
-    vi.mocked(VueRouter.useRouter).mockReturnValue(mockRouter)
-    vi.mocked(VueRouter.useRoute).mockReturnValue(mockRoute)
+    mockRouter = { push: vi.fn() }
+    mockRoute = { path: '/activity/all' }
+    vi.mocked(VueRouter.useRouter).mockReturnValue(mockRouter as any)
+    vi.mocked(VueRouter.useRoute).mockReturnValue(mockRoute as any)
   })
 
-  it('渲染活动页面布局', () => {
+  it('renders the activity shell and side navigation', () => {
     const wrapper = mount(ActivityView, {
       global: {
         stubs: {
-          'RouterView': true,
-        },
-        mocks: {
-          $router: mockRouter,
-          $route: mockRoute,
+          RouterView: true,
+          ElIcon: { template: '<i><slot /></i>' },
         },
       },
     })
+
     expect(wrapper.find('.activity-page').exists()).toBe(true)
-  })
-
-  it('显示垂直导航栏', () => {
-    const wrapper = mount(ActivityView, {
-      global: {
-        stubs: {
-          'RouterView': true,
-        },
-        mocks: {
-          $router: mockRouter,
-          $route: mockRoute,
-        },
-      },
-    })
     expect(wrapper.find('.vnav').exists()).toBe(true)
+    expect(wrapper.findAll('.vnav-item')).toHaveLength(3)
   })
 
-  it('导航栏包含日记和伙伴选项', () => {
+  it('marks the all item as active on the all route', () => {
     const wrapper = mount(ActivityView, {
       global: {
         stubs: {
-          'RouterView': true,
-        },
-        mocks: {
-          $router: mockRouter,
-          $route: mockRoute,
+          RouterView: true,
+          ElIcon: { template: '<i><slot /></i>' },
         },
       },
     })
-    const navItems = wrapper.findAll('.vnav-item')
-    expect(navItems.length).toBe(2)
+
+    expect(wrapper.findAll('.vnav-item')[0].classes()).toContain('active')
   })
 
-  it('当前路由为日记时日记导航项应为活跃', () => {
+  it('navigates to partner when the partner item is clicked', async () => {
     const wrapper = mount(ActivityView, {
       global: {
         stubs: {
-          'RouterView': true,
-        },
-        mocks: {
-          $router: mockRouter,
-          $route: { path: '/activity/journal' },
+          RouterView: true,
+          ElIcon: { template: '<i><slot /></i>' },
         },
       },
     })
-    
-    const vm = wrapper.vm as any
-    expect(vm.isJournal).toBe(true)
-    expect(vm.isPartner).toBe(false)
-  })
 
-  it('当前路由为伙伴时伙伴导航项应为活跃', () => {
-    // 重新 mock 路由为伙伴路由
-    const mockPartnerRoute = { path: '/activity/partner' }
-    vi.mocked(VueRouter.useRoute).mockReturnValue(mockPartnerRoute)
-    
-    const wrapper = mount(ActivityView, {
-      global: {
-        stubs: {
-          'RouterView': true,
-        },
-        mocks: {
-          $router: mockRouter,
-          $route: mockPartnerRoute,
-        },
-      },
-    })
-    
-    const vm = wrapper.vm as any
-    expect(vm.isJournal).toBe(false)
-    expect(vm.isPartner).toBe(true)
-  })
+    await wrapper.findAll('.vnav-item')[2].trigger('click')
 
-  it('点击日记导航跳转到日记页面', async () => {
-    const wrapper = mount(ActivityView, {
-      global: {
-        stubs: {
-          'RouterView': true,
-        },
-        mocks: {
-          $router: mockRouter,
-          $route: mockRoute,
-        },
-      },
-    })
-    
-    const journalNav = wrapper.findAll('.vnav-item')[0]
-    await journalNav.trigger('click')
-    
-    expect(mockRouter.push).toHaveBeenCalledWith('/activity/journal')
-  })
-
-  it('点击伙伴导航跳转到伙伴页面', async () => {
-    const wrapper = mount(ActivityView, {
-      global: {
-        stubs: {
-          'RouterView': true,
-        },
-        mocks: {
-          $router: mockRouter,
-          $route: mockRoute,
-        },
-      },
-    })
-    
-    const partnerNav = wrapper.findAll('.vnav-item')[1]
-    await partnerNav.trigger('click')
-    
     expect(mockRouter.push).toHaveBeenCalledWith('/activity/partner')
   })
 })

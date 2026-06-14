@@ -1,151 +1,119 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { nextTick } from 'vue'
-import DiaryEditor from '@/components/activity/DiaryEditor.vue'
 import { ElMessage } from 'element-plus'
+import DiaryEditor from '@/components/activity/DiaryEditor.vue'
+
+vi.mock('@/api/activity', () => ({
+  createDiary: vi.fn(),
+  getCompletableActivities: vi.fn(),
+  getActivityDetail: vi.fn(),
+}))
+
+import { createDiary, getActivityDetail, getCompletableActivities } from '@/api/activity'
 
 describe('DiaryEditor.vue', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(getCompletableActivities).mockResolvedValue([
+      {
+        id: 1,
+        creatorId: 1,
+        title: 'Museum Walk',
+        description: '',
+        plan: '',
+        activityTime: '2026-06-11T18:00:00',
+        location: 'Downtown',
+        maxParticipants: 2,
+        status: 2,
+        createTime: '2026-06-11T10:00:00',
+      },
+    ] as any)
+    vi.mocked(getActivityDetail).mockResolvedValue({
+      activity: {
+        id: 1,
+        creatorId: 1,
+        title: 'Museum Walk',
+        description: '',
+        plan: '',
+        activityTime: '2026-06-11T18:00:00',
+        location: 'Downtown',
+        maxParticipants: 2,
+        status: 2,
+        createTime: '2026-06-11T10:00:00',
+      },
+      participants: [{ id: 2, nickname: 'Alex', avatar: '' }],
+      participantCount: 1,
+      hasJournal: false,
+    } as any)
   })
 
-  it('渲染日记编辑器对话框', () => {
-    const wrapper = mount(DiaryEditor, {
+  const mountEditor = () =>
+    mount(DiaryEditor, {
       props: {
         modelValue: true,
-        activityId: 1,
       },
       global: {
         stubs: {
-          'el-dialog': { template: '<div class="dialog"><slot /></div>' },
-          'el-form': true,
-          'el-form-item': true,
-          'el-input': true,
-          'el-button': true,
+          'el-dialog': { template: '<div class="diary-dialog"><slot /><slot name="footer" /></div>' },
+          'el-form': { template: '<form><slot /></form>' },
+          'el-form-item': { template: '<div><slot /></div>' },
+          'el-input': { template: '<input />' },
+          'el-button': { template: '<button><slot /></button>' },
+          'el-select': { template: '<div><slot /></div>' },
+          'el-option': { template: '<div><slot /></div>' },
         },
       },
     })
+
+  it('renders the diary dialog shell', () => {
+    const wrapper = mountEditor()
     expect(wrapper.find('.diary-dialog').exists()).toBe(true)
   })
 
-  it('标题为空时提交验证失败', async () => {
-    const wrapper = mount(DiaryEditor, {
-      props: {
-        modelValue: true,
-        activityId: 1,
-      },
-      global: {
-        stubs: {
-          'el-dialog': { template: '<div class="dialog"><slot /></div>' },
-          'el-form': true,
-          'el-form-item': true,
-          'el-input': true,
-          'el-button': true,
-        },
-      },
-    })
-    
+  it('shows a warning when submitting without a title', async () => {
+    const wrapper = mountEditor()
+    await nextTick()
+
     const vm = wrapper.vm as any
+    vm.selectedActivityId = 1
     vm.form.title = ''
-    vm.form.content = 'Some content'
-    
+
     await vm.submit()
-    
+
     expect(ElMessage.warning).toHaveBeenCalledWith('Please enter a title')
   })
 
-  it('上传文件时更新预览', async () => {
-    const wrapper = mount(DiaryEditor, {
-      props: {
-        modelValue: true,
-        activityId: 1,
-      },
-      global: {
-        stubs: {
-          'el-dialog': { template: '<div class="dialog"><slot /></div>' },
-          'el-form': true,
-          'el-form-item': true,
-          'el-input': true,
-          'el-button': true,
-        },
-      },
-    })
-    
+  it('updates previews when files are selected', async () => {
+    const wrapper = mountEditor()
     const vm = wrapper.vm as any
-    
-    // 创建模拟文件
+
     const file = new File(['test'], 'test.jpg', { type: 'image/jpeg' })
-    const event = {
+    vm.onFileChange({
       target: {
         files: [file],
+        value: '',
       },
-    }
-    
-    vm.onFileChange(event)
+    })
+
     await nextTick()
-    
+
     expect(vm.files.length).toBe(1)
     expect(vm.previews.length).toBe(1)
   })
 
-  it('可以移除已上传的照片', async () => {
-    const wrapper = mount(DiaryEditor, {
-      props: {
-        modelValue: true,
-        activityId: 1,
-      },
-      global: {
-        stubs: {
-          'el-dialog': { template: '<div class="dialog"><slot /></div>' },
-          'el-form': true,
-          'el-form-item': true,
-          'el-input': true,
-          'el-button': true,
-        },
-      },
-    })
-    
-    const vm = wrapper.vm as any
-    
-    // 添加文件
-    const file = new File(['test'], 'test.jpg', { type: 'image/jpeg' })
-    vm.files.push(file)
-    vm.previews.push('url')
-    
-    expect(vm.files.length).toBe(1)
-    
-    // 移除文件
-    vm.removePhoto(0)
+  it('submits with the selected activity id', async () => {
+    vi.mocked(createDiary).mockResolvedValue({ id: 1 } as any)
+    const wrapper = mountEditor()
     await nextTick()
-    
-    expect(vm.files.length).toBe(0)
-    expect(vm.previews.length).toBe(0)
-  })
 
-  it('最多允许 9 张照片', () => {
-    const wrapper = mount(DiaryEditor, {
-      props: {
-        modelValue: true,
-        activityId: 1,
-      },
-      global: {
-        stubs: {
-          'el-dialog': { template: '<div class="dialog"><slot /></div>' },
-          'el-form': true,
-          'el-form-item': true,
-          'el-input': true,
-          'el-button': true,
-        },
-      },
-    })
-    
     const vm = wrapper.vm as any
-    
-    // 添加 9 张照片
-    for (let i = 0; i < 9; i++) {
-      vm.previews.push(`url${i}`)
-    }
-    
-    expect(vm.previews.length).toBe(9)
+    vm.selectedActivityId = 1
+    vm.form.title = 'Great Day'
+    vm.form.content = 'Nice memory'
+
+    await vm.submit()
+
+    expect(createDiary).toHaveBeenCalled()
   })
 })

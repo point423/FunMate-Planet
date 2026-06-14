@@ -76,4 +76,4 @@ export const getFriends = () =>
 
 // ✅ 改为：调用 /evaluations 而非 /users/rate，使用 scoreLevel (1-3) 而非 rating
 export const ratePartner = (userId: number, score: 1 | 2 | 3) =>
-  request.post('/evaluations', { targetUserId: userId, scoreLevel: score })
+  request.post('/evaluations', { targetId: userId, scoreLevel: score })

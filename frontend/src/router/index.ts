@@ -46,7 +46,12 @@ const router = createRouter({
       children: [
         {
           path: '',
-          redirect: { name: 'Journal' },
+          redirect: { name: 'AllActivities' },
+        },
+        {
+          path: 'all',
+          name: 'AllActivities',
+          component: () => import('@/views/activity/AllView.vue'),
         },
         {
           path: 'journal',
@@ -54,14 +59,14 @@ const router = createRouter({
           component: () => import('@/views/activity/JournalView.vue'),
         },
         {
-          path: 'journal/:id',
-          name: 'JournalDetail',
-          component: () => import('@/views/activity/JournalDetailView.vue'),
-        },
-        {
           path: 'partner',
           name: 'FindPartner',
           component: () => import('@/views/activity/FindPartnerView.vue'),
+        },
+        {
+          path: ':activityId',
+          name: 'ActivityDetail',
+          component: () => import('@/views/activity/ActivityDetailView.vue'),
         },
       ],
     },

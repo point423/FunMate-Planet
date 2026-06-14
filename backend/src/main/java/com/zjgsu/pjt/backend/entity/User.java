@@ -32,7 +32,7 @@ public class User {
     private Double latitude;
 
     @Column(name = "average_score")
-    private Double averageScore = 5.0; // 强制使用 Double 类型
+    private Double averageScore = 0.0; // Positive feedback rate: 3-star reviews / total reviews * 100
 
     @Column(name = "create_time", updatable = false)
     private LocalDateTime createTime = LocalDateTime.now();

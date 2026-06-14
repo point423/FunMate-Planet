@@ -17,8 +17,11 @@ import java.util.Map;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyCollection;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 public class ActivityServiceTest {
@@ -32,25 +35,49 @@ public class ActivityServiceTest {
     @Mock
     private ActivityDiaryRepository diaryRepository;
 
+    @Mock
+    private ActivityInvitationService activityInvitationService;
+
     @InjectMocks
     private ActivityService activityService;
 
     @Test
-    @DisplayName("安全校验-非创建者修改活动应返回null")
+    @DisplayName("非创建者修改活动时返回 null")
     void updateActivity_Forbidden_ReturnsNull() {
         Activity existing = new Activity();
         existing.setId(1L);
-        existing.setCreatorId(99L); // 创建者是 99
+        existing.setCreatorId(99L);
 
         when(activityRepository.findById(1L)).thenReturn(Optional.of(existing));
 
-        // 当前登录用户是 1L，尝试修改 99L 的活动
         Activity result = activityService.updateActivity(1L, new Activity(), 1L);
         assertNull(result);
     }
 
     @Test
-    @DisplayName("安全校验-非创建者删除活动应返回false")
+    @DisplayName("编辑活动未显式传 status 时保留原状态")
+    void updateActivity_WithoutStatus_KeepsExistingStatus() {
+        Activity existing = new Activity();
+        existing.setId(1L);
+        existing.setCreatorId(1L);
+        existing.setStatus(1);
+        existing.setTitle("Before");
+
+        Activity update = new Activity();
+        update.setTitle("After");
+
+        when(activityRepository.findById(1L)).thenReturn(Optional.of(existing));
+        when(activityRepository.save(any(Activity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        Activity result = activityService.updateActivity(1L, update, 1L);
+
+        assertNotNull(result);
+        assertEquals(1, result.getStatus());
+        assertEquals("After", result.getTitle());
+    }
+
+    @Test
+    @DisplayName("非创建者删除活动时返回 false")
     void deleteActivity_Forbidden_ReturnsFalse() {
         Activity existing = new Activity();
         existing.setId(1L);
@@ -63,7 +90,7 @@ public class ActivityServiceTest {
     }
 
     @Test
-    @DisplayName("安全校验-非创建者结束活动应返回false")
+    @DisplayName("非创建者结束活动时返回 false")
     void endActivity_Forbidden_ReturnsFalse() {
         Activity existing = new Activity();
         existing.setId(1L);
@@ -75,7 +102,7 @@ public class ActivityServiceTest {
     }
 
     @Test
-    @DisplayName("创建活动成功")
+    @DisplayName("创建活动成功并自动加入创建者")
     void createActivity_Success() {
         Activity activity = new Activity();
         activity.setCreatorId(1L);
@@ -92,7 +119,26 @@ public class ActivityServiceTest {
     }
 
     @Test
-    @DisplayName("鎴戠殑娲诲姩-鎸夌姸鎬佸垎缁勫苟鍖呭惈鍒涘缓鑰卲ending")
+    @DisplayName("创建活动时带 inviteeId 会额外创建邀请")
+    void createActivity_WithInvitee_CreatesInvitation() {
+        Activity activity = new Activity();
+        activity.setCreatorId(1L);
+        activity.setInviteeId(2L);
+
+        Activity saved = new Activity();
+        saved.setId(10L);
+        saved.setCreatorId(1L);
+
+        when(activityRepository.save(any())).thenReturn(saved);
+        when(participantRepository.findByActivityIdAndUserId(10L, 1L)).thenReturn(Optional.empty());
+
+        activityService.createActivity(activity);
+
+        verify(activityInvitationService).createInvitation(10L, 1L, 2L);
+    }
+
+    @Test
+    @DisplayName("我的活动列表会分组参与和自己创建的 pending 活动")
     void getMyActivities_GroupsParticipatedAndCreatorPending() {
         ActivityParticipant activeParticipant = new ActivityParticipant();
         activeParticipant.setActivityId(10L);
@@ -116,11 +162,31 @@ public class ActivityServiceTest {
     }
 
     @Test
-    @DisplayName("娲诲姩璇︽儏-鍒ゆ柇鏄惁宸叉湁鏃ヨ")
+    @DisplayName("活动有日记时返回 true")
     void hasJournal_ReturnsTrueWhenDiaryExists() {
         when(diaryRepository.existsByActivityId(10L)).thenReturn(true);
-
         assertTrue(activityService.hasJournal(10L));
+    }
+
+    @Test
+    @DisplayName("创建者可对已有活动再次邀请好友")
+    void inviteFriend_CreatorCanInvite() {
+        Activity activity = activity(10L, 1L, 0);
+        when(activityRepository.findById(10L)).thenReturn(Optional.of(activity));
+
+        Activity result = activityService.inviteFriend(10L, 1L, 2L);
+
+        assertEquals(10L, result.getId());
+        verify(activityInvitationService).createInvitation(10L, 1L, 2L);
+    }
+
+    @Test
+    @DisplayName("非创建者不能对活动发送邀请")
+    void inviteFriend_NonCreatorThrows() {
+        Activity activity = activity(10L, 99L, 0);
+        when(activityRepository.findById(10L)).thenReturn(Optional.of(activity));
+
+        assertThrows(IllegalArgumentException.class, () -> activityService.inviteFriend(10L, 1L, 2L));
     }
 
     private Activity activity(Long id, Long creatorId, Integer status) {
