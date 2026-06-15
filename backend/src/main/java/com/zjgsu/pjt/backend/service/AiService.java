@@ -19,19 +19,22 @@ public class AiService {
      *   - https://api.openai.com/v1
      *   - http://ollama:11434/v1            (本地 Ollama,需 0.1.14+)
      *
-     * 注意:这里用 ai.baseurl (flat),不是 ai.base-url (kebab-case)。
-     * 因为 @Value 不支持 relaxed binding,Railway 环境变量 AI_BASE_URL
-     * 解析后是 ai.baseurl(下划线转扁平),这样才能正确读取。
+     * 重要:Spring 内部将环境变量 AI_BASE_URL / AI_API_KEY 解析为
+     *   ai.base.url / ai.api.key (下划线转点),@Value 严格匹配,
+     *   所以这里要用点分形式才能正确读取。
      */
-    @Value("${ai.baseurl:https://api.deepseek.com/v1}")
+    @Value("${ai.base.url:https://api.deepseek.com/v1}")
     private String baseUrl;
 
     @Value("${ai.model:deepseek-chat}")
     private String model;
 
-    @Value("${ai.apikey:}")
+    @Value("${ai.api.key:}")
     private String apiKey;
 
+    /**
+     * 生成活动建议
+     */
     public String generateActivitySuggestion(String userTags, String userLocation, String userQuery) {
         String userMessage = String.format(
                 "用户标签[%s],位置[%s]。请求:%s。请用 100 字以内、幽默风趣的口吻给出活动建议。",
@@ -42,13 +45,23 @@ public class AiService {
                 userMessage);
     }
 
+    /**
+     * 统一的 OpenAI 兼容 Chat Completions 调用。
+     * 适配:
+     *   - DeepSeek
+     *   - OpenAI
+     *   - Ollama (0.1.14+ 暴露 /v1/chat/completions)
+     *   - 其他所有 OpenAI 兼容服务
+     */
     private String chatCompletion(String systemPrompt, String userMessage) {
+        // 1. 拼接 URL: 去掉尾部斜杠,补 /chat/completions
         String url = baseUrl.trim();
         if (url.endsWith("/")) {
             url = url.substring(0, url.length() - 1);
         }
         url += "/chat/completions";
 
+        // 2. 构造 JSON 请求体 (OpenAI messages 格式)
         String jsonPayload = String.format("""
             {
                 "model": "%s",
@@ -84,6 +97,7 @@ public class AiService {
             String body = response.body();
 
             if (status == 200) {
+                // OpenAI 标准响应: choices[0].message.content
                 String content = extractMessageContent(body);
                 if (content != null && !content.isBlank()) {
                     return content;
@@ -109,6 +123,9 @@ public class AiService {
         }
     }
 
+    /**
+     * 极简 JSON 字符串转义(只处理常见字符,够用)。
+     */
     private String escapeJson(String s) {
         if (s == null) return "";
         return s.replace("\\", "\\\\")
@@ -118,8 +135,13 @@ public class AiService {
                 .replace("\t", "\\t");
     }
 
+    /**
+     * 从 OpenAI 兼容响应中提取 choices[0].message.content。
+     * 不引入 JSON 库,手写简单解析以避免依赖。
+     */
     private String extractMessageContent(String body) {
         if (body == null) return null;
+        // 找 "content":"..." 这一段
         String marker = "\"content\":\"";
         int idx = body.indexOf(marker);
         if (idx < 0) return null;
