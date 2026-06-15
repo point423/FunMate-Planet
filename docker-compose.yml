@@ -68,6 +68,8 @@ services:
       DB_HOST: mysql
       DB_PASSWORD: 1234567
       REDIS_HOST: redis
+      # 本地 Docker:用本地 Ollama (Ollama 0.1.14+ 暴露 /v1/chat/completions)
+      # 云部署 (Railway):改成 https://api.minimax.chat/v1 并填上 AI_API_KEY
       AI_API_KEY: ollama
       AI_BASE_URL: http://ollama:11434/v1
       AI_MODEL: qwen2.5:1.5b

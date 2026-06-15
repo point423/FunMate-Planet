@@ -12,20 +12,6 @@
     </div>
 
     <div class="jd-content">
-      <div class="ai-summary-card" :class="{ 'is-loading': aiLoading }">
-        <div class="ai-header">
-          <span class="ai-title">AI Summary</span>
-          <el-button size="small" type="primary" round :loading="aiLoading" @click="generateAiSummary">
-            {{ aiSummary ? 'Regenerate' : 'Generate Summary' }}
-          </el-button>
-        </div>
-        <div class="ai-body">
-          <p v-if="displayText" class="ai-text typewriter">{{ displayText }}</p>
-          <p v-else-if="aiLoading" class="ai-placeholder">Summarizing this shared moment...</p>
-          <p v-else class="ai-placeholder">Generate an AI summary for this shared journal.</p>
-        </div>
-      </div>
-
       <div class="section-header">
         <span class="section-title">Shared Journal</span>
         <span class="section-desc">Each participant keeps one card. You can only edit your own.</span>
@@ -101,7 +87,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { getActivityAiSummary, getDiaryDetail, updateMySharedDiaryEntry, uploadImage } from '@/api/activity'
+import { getDiaryDetail, updateMySharedDiaryEntry, uploadImage } from '@/api/activity'
 import { useUserStore } from '@/stores/user'
 import { formatDate } from '@/utils/format'
 import type { SharedDiaryEntryPayload } from '@/types/diary'
@@ -113,10 +99,6 @@ const diary = ref<any>(null)
 const sharedEntries = ref<SharedDiaryEntryPayload[]>([])
 const entryDrafts = ref<Record<number, { content: string; images: string[] | string }>>({})
 const savingUserId = ref<number | null>(null)
-
-const aiLoading = ref(false)
-const aiSummary = ref('')
-const displayText = ref('')
 
 const coverImage = computed(() => {
   const images = parseImages(diary.value?.images)
@@ -140,33 +122,6 @@ const parseImages = (images: any): string[] => {
 const fallbackAvatar = (seed: number) => `https://api.dicebear.com/7.x/avataaars/svg?seed=${seed}`
 
 const isMine = (userId: number) => userStore.userInfo?.id === userId
-
-const typewriter = (text: string) => {
-  displayText.value = ''
-  let index = 0
-  const timer = setInterval(() => {
-    if (index < text.length) {
-      displayText.value += text.charAt(index)
-      index += 1
-    } else {
-      clearInterval(timer)
-    }
-  }, 30)
-}
-
-const generateAiSummary = async () => {
-  const activityId = diary.value?.activityId || Number(route.params.id)
-  aiLoading.value = true
-  try {
-    const response = await getActivityAiSummary(activityId) as any
-    aiSummary.value = typeof response === 'string' ? response : (response.data || 'Failed to generate summary')
-    typewriter(aiSummary.value)
-  } catch {
-    ElMessage.error('AI summary failed.')
-  } finally {
-    aiLoading.value = false
-  }
-}
 
 const hydrateEntryDrafts = () => {
   const drafts: Record<number, { content: string; images: string[] | string }> = {}
@@ -239,17 +194,6 @@ onMounted(loadDiary)
 .m-tag { font-size: 13px; color: rgba(255,255,255,0.82); }
 
 .jd-content { padding: 24px; display: flex; flex-direction: column; gap: 24px; }
-
-.ai-summary-card {
-  background: rgba(0, 255, 149, 0.05);
-  border: 1px solid rgba(0, 255, 149, 0.2);
-  border-radius: 16px;
-  padding: 20px;
-}
-.ai-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; gap: 12px; }
-.ai-title { font-weight: 700; color: var(--color-green); font-size: 15px; }
-.ai-text { font-size: 14px; line-height: 1.8; color: #ddd; white-space: pre-wrap; }
-.ai-placeholder { color: #666; font-size: 13px; font-style: italic; }
 
 .section-header { border-left: 4px solid var(--color-green); padding-left: 12px; }
 .section-title { font-size: 16px; font-weight: 700; display: block; }
@@ -375,11 +319,4 @@ onMounted(loadDiary)
 }
 
 .jd-loading { padding: 40px; }
-
-.typewriter {
-  border-right: 2px solid var(--color-green);
-  animation: blink 0.7s infinite;
-}
-
-@keyframes blink { 50% { border-color: transparent; } }
 </style>

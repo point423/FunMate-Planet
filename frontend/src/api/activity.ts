@@ -9,47 +9,47 @@ import type {
 } from '@/types/activity'
 
 export const createActivity = (data: ActivityForm) =>
-  request.post<Activity>('/activities', data) as unknown as Promise<Activity>
+    request.post<Activity>('/activities', data) as unknown as Promise<Activity>
 
 export const updateActivity = (id: number, data: ActivityForm | Partial<Activity>) =>
-  request.put<Activity>(`/activities/${id}`, data) as unknown as Promise<Activity>
+    request.put<Activity>(`/activities/${id}`, data) as unknown as Promise<Activity>
 
 export const getActivityDetail = (id: number) =>
-  request.get<ActivityDetailResponse>(`/activities/${id}`) as unknown as Promise<ActivityDetailResponse>
+    request.get<ActivityDetailResponse>(`/activities/${id}`) as unknown as Promise<ActivityDetailResponse>
 
 export const getActivities = (params: { pageNum?: number; pageSize?: number; status?: number }) =>
-  request.get<any>('/activities', { params }) as unknown as Promise<any>
+    request.get<any>('/activities', { params }) as unknown as Promise<any>
 
 export const getMyActivities = () =>
-  request.get<GroupedActivitiesResponse>('/activities/my') as unknown as Promise<GroupedActivitiesResponse>
+    request.get<GroupedActivitiesResponse>('/activities/my') as unknown as Promise<GroupedActivitiesResponse>
 
 export const getCompletableActivities = () =>
-  request.get<Activity[]>('/activities/completable') as unknown as Promise<Activity[]>
+    request.get<Activity[]>('/activities/completable') as unknown as Promise<Activity[]>
 
 export const completeActivity = (id: number) =>
-  request.post(`/activities/${id}/complete`, {}) as unknown as Promise<void>
+    request.post(`/activities/${id}/complete`, {}) as unknown as Promise<void>
 
 export const endActivity = (id: number) =>
-  completeActivity(id)
+    completeActivity(id)
 
 export const joinActivity = (id: number) =>
-  request.post(`/activities/${id}/join`, {}) as unknown as Promise<void>
+    request.post(`/activities/${id}/join`, {}) as unknown as Promise<void>
 
 export const inviteActivityFriend = (activityId: number, inviteeId: number) =>
-  request.post<Activity>(`/activities/${activityId}/invite`, { inviteeId }) as unknown as Promise<Activity>
+    request.post<Activity>(`/activities/${activityId}/invite`, { inviteeId }) as unknown as Promise<Activity>
 
 export const getActivityInvitations = () =>
-  request.get<ActivityInvitationListResponse>('/activity-invitations') as unknown as Promise<ActivityInvitationListResponse>
+    request.get<ActivityInvitationListResponse>('/activity-invitations') as unknown as Promise<ActivityInvitationListResponse>
 
 export const createActivityInvitation = (activityId: number, receiverId: number) =>
-  request.post<ActivityInvitation>('/activity-invitations', { activityId, receiverId }) as unknown as Promise<ActivityInvitation>
+    request.post<ActivityInvitation>('/activity-invitations', { activityId, receiverId }) as unknown as Promise<ActivityInvitation>
 
 export const handleActivityInvitation = (invitationId: number, accept: boolean) =>
-  request.post(`/activity-invitations/${invitationId}/handle`, { accept }) as unknown as Promise<void>
+    request.post(`/activity-invitations/${invitationId}/handle`, { accept }) as unknown as Promise<void>
 
 export const reviewParticipant = (
-  activityId: number,
-  data: { revieweeId: number; rating: number; comment: string },
+    activityId: number,
+    data: { revieweeId: number; rating: number; comment: string },
 ) => {
   const normalizedRating = Math.max(1, Math.min(3, Math.round(data.rating)))
   return request.post('/evaluations', {
@@ -69,34 +69,31 @@ export interface UserEvaluationRecord {
 }
 
 export const getEvaluationsByEvaluator = (evaluatorId: number) =>
-  request.get<UserEvaluationRecord[]>(`/evaluations/evaluator/${evaluatorId}`) as unknown as Promise<UserEvaluationRecord[]>
-
-export const getActivityAiSummary = (activityId: number) =>
-  request.get<string>(`/activities/${activityId}/ai-summary`) as unknown as Promise<string>
+    request.get<UserEvaluationRecord[]>(`/evaluations/evaluator/${evaluatorId}`) as unknown as Promise<UserEvaluationRecord[]>
 
 export const getLeaderboard = () =>
-  request.get<any[]>('/activities/leaderboard') as unknown as Promise<any[]>
+    request.get<any[]>('/activities/leaderboard') as unknown as Promise<any[]>
 
 export const createDiary = (data: FormData) =>
-  request.post('/diaries', data) as unknown as Promise<any>
+    request.post('/diaries', data) as unknown as Promise<any>
 
 export const getMyDiaries = (params?: { pageNum?: number; pageSize?: number }) =>
-  request.get('/diaries', { params }) as unknown as Promise<any>
+    request.get('/diaries', { params }) as unknown as Promise<any>
 
 export const getDiaryDetail = (id: number) =>
-  request.get(`/diaries/${id}`) as unknown as Promise<any>
+    request.get(`/diaries/${id}`) as unknown as Promise<any>
 
 export const updateMySharedDiaryEntry = (diaryId: number, data: { content?: string; images?: string[] | string }) =>
-  request.put(`/diaries/${diaryId}/entries/me`, data) as unknown as Promise<any>
+    request.put(`/diaries/${diaryId}/entries/me`, data) as unknown as Promise<any>
 
 export const shareMySharedDiaryEntry = (diaryId: number) =>
-  request.post(`/diaries/${diaryId}/share-me`, {}) as unknown as Promise<any>
+    request.post(`/diaries/${diaryId}/share-me`, {}) as unknown as Promise<any>
 
 export const deleteDiary = (id: number) =>
-  request.delete(`/diaries/${id}`) as unknown as Promise<void>
+    request.delete(`/diaries/${id}`) as unknown as Promise<void>
 
 export const deleteActivity = (id: number) =>
-  request.delete(`/activities/${id}`) as unknown as Promise<void>
+    request.delete(`/activities/${id}`) as unknown as Promise<void>
 
 export const uploadImage = (file: File) => {
   const fd = new FormData()

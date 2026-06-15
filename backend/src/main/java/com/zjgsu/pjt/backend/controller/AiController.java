@@ -32,13 +32,4 @@ public class AiController {
         return Result.success(Map.of("suggestion", suggestion));
     }
 
-    @PostMapping("/activity-summary")
-    public Result getSummary(@RequestBody Map<String, String> request) {
-        String title = request.getOrDefault("title", "未命名活动");
-        String participants = request.getOrDefault("participants", "多人");
-        String reviews = request.getOrDefault("reviews", "暂无详细评价");
-        
-        String summary = aiService.generateActivitySummary(title, participants, reviews);
-        return Result.success(Map.of("summary", summary));
-    }
 }

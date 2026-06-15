@@ -60,20 +60,6 @@
             </h3>
           </div>
 
-          <div class="ai-summary-card" :class="{ 'is-loading': aiLoading }">
-            <div class="ai-header">
-              <span class="ai-title">AI Summary</span>
-              <el-button size="small" type="primary" round :loading="aiLoading" @click="generateAiSummary">
-                {{ aiSummary ? 'Regenerate' : 'Generate Summary' }}
-              </el-button>
-            </div>
-            <div class="ai-body">
-              <p v-if="displayText" class="ai-text typewriter">{{ displayText }}</p>
-              <p v-else-if="aiLoading" class="ai-placeholder">Summarizing this shared moment...</p>
-              <p v-else class="ai-placeholder">Generate an AI summary for this shared journal.</p>
-            </div>
-          </div>
-
           <div class="section-header">
             <span class="section-title">Shared Journal</span>
             <span class="section-desc">Each participant keeps one card. You can only edit your own.</span>
@@ -192,7 +178,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Delete } from '@element-plus/icons-vue'
 import DiaryEditor from '@/components/activity/DiaryEditor.vue'
-import { getActivityAiSummary, getDiaryDetail, shareMySharedDiaryEntry, updateMySharedDiaryEntry, uploadImage } from '@/api/activity'
+import { getDiaryDetail, shareMySharedDiaryEntry, updateMySharedDiaryEntry, uploadImage } from '@/api/activity'
 import { useActivityStore } from '@/stores/activity'
 import { useUserStore } from '@/stores/user'
 import { formatDate } from '@/utils/format'
@@ -205,9 +191,6 @@ const userStore = useUserStore()
 
 const activeId = ref<number | null>(null)
 const showEditor = ref(false)
-const aiLoading = ref(false)
-const aiSummary = ref('')
-const displayText = ref('')
 const sharedEntries = ref<SharedDiaryEntryPayload[]>([])
 const entryDrafts = ref<Record<number, { content: string; images: string[] | string }>>({})
 const savingUserId = ref<number | null>(null)
@@ -362,34 +345,6 @@ const hydrateSharedEntries = (diary: any) => {
     }
   })
   entryDrafts.value = drafts
-}
-
-const typewriter = (text: string) => {
-  displayText.value = ''
-  let index = 0
-  const timer = setInterval(() => {
-    if (index < text.length) {
-      displayText.value += text.charAt(index)
-      index += 1
-    } else {
-      clearInterval(timer)
-    }
-  }, 30)
-}
-
-const generateAiSummary = async () => {
-  if (!activeDiary.value) return
-  const id = activeDiary.value.activityId || activeId.value
-  aiLoading.value = true
-  try {
-    const response = await getActivityAiSummary(id) as any
-    aiSummary.value = typeof response === 'string' ? response : (response.data || 'Failed to generate summary')
-    typewriter(aiSummary.value)
-  } catch {
-    ElMessage.error('AI summary failed.')
-  } finally {
-    aiLoading.value = false
-  }
 }
 
 const selectJournal = async (id: number) => {
@@ -689,17 +644,6 @@ onMounted(async () => {
   color: #f6f6f6;
 }
 
-.ai-summary-card {
-  background: rgba(0, 255, 149, 0.05);
-  border: 1px solid rgba(0, 255, 149, 0.2);
-  border-radius: 16px;
-  padding: 20px;
-}
-.ai-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; gap: 12px; }
-.ai-title { font-weight: 700; color: var(--color-green); font-size: 15px; }
-.ai-text { font-size: 14px; line-height: 1.8; color: #ddd; white-space: pre-wrap; }
-.ai-placeholder { color: #666; font-size: 13px; font-style: italic; }
-
 .section-header { border-left: 4px solid var(--color-green); padding-left: 12px; }
 .section-title { font-size: 16px; font-weight: 700; display: block; }
 .section-desc { font-size: 11px; color: #888; margin-top: 4px; display: block; }
@@ -856,11 +800,6 @@ onMounted(async () => {
   padding: 0 24px 24px;
 }
 
-.typewriter {
-  border-right: 2px solid var(--color-green);
-  animation: blink 0.7s infinite;
-}
-
 :deep(.el-image-viewer__wrapper) {
   z-index: 4000 !important;
 }
@@ -868,6 +807,4 @@ onMounted(async () => {
 :deep(.el-image-viewer__btn) {
   z-index: 4001 !important;
 }
-
-@keyframes blink { 50% { border-color: transparent; } }
 </style>
