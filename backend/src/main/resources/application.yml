@@ -48,11 +48,12 @@ cors:
   allowed-origins: ${CORS_ALLOWED_ORIGINS:*}
 
 ai:
-  # 默认接 MiniMax 云端 API（适合 Railway / Vercel 云部署）
-  # 本地 Docker 想用本地 Ollama，在 docker-compose.yml 里覆盖即可
-  api-key: ${AI_API_KEY:${API_KEY:}}
-  base-url: ${AI_BASE_URL:https://api.minimax.chat/v1}
-  model: ${AI_MODEL:MiniMax-M2.7}
+  # 注意:这里用 camelCase(baseurl/apikey)而不是 kebab-case(base-url/api-key)
+  # 因为 @Value 不支持 relaxed binding,Railway 环境变量 AI_BASE_URL 会解析成 ai.baseurl
+  # (下划线转扁平,不是转点),这样才能正确读取。
+  baseurl: ${AI_BASE_URL:https://api.deepseek.com/v1}
+  apikey: ${AI_API_KEY:}
+  model: ${AI_MODEL:deepseek-chat}
 
 app:
   version: ${APP_VERSION:0.0.1-SNAPSHOT}

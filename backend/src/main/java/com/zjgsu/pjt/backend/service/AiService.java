@@ -12,13 +12,24 @@ import java.time.Duration;
 @Service
 public class AiService {
 
-    @Value("${ai.base-url:https://api.minimax.chat/v1}")
+    /**
+     * 兼容 OpenAI Chat Completions 协议的 base URL。
+     * 例如:
+     *   - https://api.deepseek.com/v1
+     *   - https://api.openai.com/v1
+     *   - http://ollama:11434/v1            (本地 Ollama,需 0.1.14+)
+     *
+     * 注意:这里用 ai.baseurl (flat),不是 ai.base-url (kebab-case)。
+     * 因为 @Value 不支持 relaxed binding,Railway 环境变量 AI_BASE_URL
+     * 解析后是 ai.baseurl(下划线转扁平),这样才能正确读取。
+     */
+    @Value("${ai.baseurl:https://api.deepseek.com/v1}")
     private String baseUrl;
 
-    @Value("${ai.model:MiniMax-M2.7}")
+    @Value("${ai.model:deepseek-chat}")
     private String model;
 
-    @Value("${ai.api-key:}")
+    @Value("${ai.apikey:}")
     private String apiKey;
 
     public String generateActivitySuggestion(String userTags, String userLocation, String userQuery) {
