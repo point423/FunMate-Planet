@@ -25,9 +25,10 @@ public class UploadController {
      */
     @PostMapping("/image")
     public Result<Map<String, String>> uploadImage(@RequestParam("file") MultipartFile file,
+                                                   HttpServletRequest request,
                                                    @RequestAttribute("currentUserId") Long currentUserId) {
         try {
-            String url = uploadService.uploadImage(file);
+            String url = uploadService.uploadImage(file, request);
             Map<String, String> data = new HashMap<>();
             data.put("url", url);
             return Result.created(data);

@@ -152,8 +152,17 @@ import { uploadImage } from '@/api/activity'
 import { updateProfile } from '@/api/user'
 import { useUserStore } from '@/stores/user'
 import { formatScore } from '@/utils/format'
-import { getTagMeta } from '@/utils/tags'
 import type { ActivityItem, JournalThumb } from '@/types/user'
+import {
+  buildProfileUser,
+  formatActivityDate,
+  getDisplayTags,
+  getProfileActivities,
+  getProfileDiaries,
+  MAX_AVATAR_BYTES,
+  resolveUploadUrl,
+  syncEditForm,
+} from './profile-helpers'
 
 const userStore = useUserStore()
 
@@ -162,31 +171,13 @@ const editVisible = ref(false)
 const journalDialogVisible = ref(false)
 const selectedJournal = ref<JournalThumb | null>(null)
 const saving = ref(false)
-const MAX_AVATAR_BYTES = 5 * 1024 * 1024
 
-const user = computed(() => ({
-  nickname: userStore.userInfo?.nickname ?? '',
-  avatar: userStore.userInfo?.avatar ?? '',
-  bio: userStore.userInfo?.bio ?? '',
-  tags: userStore.userInfo?.tags ?? [],
-  activities: userStore.userInfo?.activities ?? 0,
-  score: userStore.userInfo?.score ?? 0,
-  reviewCount: userStore.userInfo?.reviewCount ?? 0,
-  ranking: userStore.userInfo?.ranking ?? '--',
-  publicJournals: userStore.userInfo?.publicJournals ?? [],
-  recentActivities: userStore.userInfo?.recentActivities ?? [],
-}))
+const user = computed(() => buildProfileUser(userStore.userInfo))
 
-const diaries = computed<JournalThumb[]>(() => (user.value.publicJournals ?? []).slice(0, 6))
-const activities = computed<ActivityItem[]>(() => (user.value.recentActivities ?? []).slice(0, 5))
+const diaries = computed<JournalThumb[]>(() => getProfileDiaries(user.value))
+const activities = computed<ActivityItem[]>(() => getProfileActivities(user.value))
 
-const displayTags = computed(() =>
-  user.value.tags.map((value) => ({
-    value,
-    label: getTagMeta(value).label,
-    emoji: getTagMeta(value).emoji,
-  })),
-)
+const displayTags = computed(() => getDisplayTags(user.value.tags))
 
 const editForm = reactive({
   nickname: '',
@@ -195,9 +186,7 @@ const editForm = reactive({
 })
 
 const openEditDialog = () => {
-  editForm.nickname = user.value.nickname
-  editForm.bio = user.value.bio
-  editForm.tags = [...user.value.tags]
+  syncEditForm(editForm, user.value)
   editVisible.value = true
 }
 
@@ -228,11 +217,7 @@ const onAvatarChange = async (event: Event) => {
 
   try {
     const uploadResult = await uploadImage(file)
-    const url =
-      typeof uploadResult === 'string'
-        ? uploadResult
-        : (uploadResult as { url?: string; data?: { url?: string } }).url
-          ?? (uploadResult as { data?: { url?: string } }).data?.url
+    const url = resolveUploadUrl(uploadResult)
 
     if (!url) {
       ElMessage.error('Upload failed: invalid image URL')
@@ -245,12 +230,6 @@ const onAvatarChange = async (event: Event) => {
   } catch {
     // handled by interceptor
   }
-}
-
-const formatActivityDate = (value: string) => {
-  if (!value) return ''
-  const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString()
 }
 
 onMounted(() => {
