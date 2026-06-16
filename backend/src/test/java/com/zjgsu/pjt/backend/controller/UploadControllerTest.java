@@ -1,97 +1,66 @@
 package com.zjgsu.pjt.backend.controller;
 
+import com.zjgsu.pjt.backend.common.Result;
 import com.zjgsu.pjt.backend.service.UploadService;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockMultipartFile;
-import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.io.IOException;
+import java.util.Map;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.when;
 
-/**
- * UploadController 测试
- *
- * 注意:
- * 1. standaloneSetup 不走 AuthInterceptor,所以 currentUserId 不会自动注入
- * 2. 用 .requestAttr("currentUserId", 1L) 手动注入
- * 3. Result.success() 返回 code=0(不是 200),HTTP 状态固定 200
- */
 @ExtendWith(MockitoExtension.class)
-public class UploadControllerTest {
+class UploadControllerTest {
 
     @Mock
     private UploadService uploadService;
 
-    @InjectMocks
-    private UploadController uploadController;
-
-    private MockMvc mockMvc;
+    private UploadController controller;
 
     @BeforeEach
     void setUp() {
-        mockMvc = MockMvcBuilders.standaloneSetup(uploadController).build();
+        controller = new UploadController();
+        ReflectionTestUtils.setField(controller, "uploadService", uploadService);
     }
 
     @Test
-    @DisplayName("POST /api/upload/image-成功返回 URL")
-    void uploadImage_Success() throws Exception {
-        when(uploadService.uploadImage(any()))
-                .thenReturn("http://localhost:8080/static/abc.png");
+    void uploadImage_ReturnsCreatedUrl() throws Exception {
+        MockMultipartFile file = new MockMultipartFile("file", "a.png", "image/png", "x".getBytes());
+        when(uploadService.uploadImage(file)).thenReturn("https://cdn.example/a.png");
 
-        MockMultipartFile file = new MockMultipartFile(
-                "file", "test.png", "image/png", "test content".getBytes());
+        Result<Map<String, String>> result = controller.uploadImage(file, 1L);
 
-        mockMvc.perform(multipart("/api/upload/image")
-                        .file(file)
-                        .requestAttr("currentUserId", 1L))   // 手动注入拦截器才会注入的属性
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(0))
-                .andExpect(jsonPath("$.message").value("created"))
-                .andExpect(jsonPath("$.data.url").value("http://localhost:8080/static/abc.png"));
+        assertThat(result.getCode()).isEqualTo(0);
+        assertThat(result.getMessage()).isEqualTo("created");
+        assertThat(result.getData()).containsEntry("url", "https://cdn.example/a.png");
     }
 
     @Test
-    @DisplayName("POST /api/upload/image-空文件,业务码 400")
-    void uploadImage_EmptyFile() throws Exception {
-        when(uploadService.uploadImage(any()))
-                .thenThrow(new IllegalArgumentException("文件为空"));
+    void uploadImage_ReturnsBadRequestForInvalidFile() throws Exception {
+        MockMultipartFile file = new MockMultipartFile("file", new byte[0]);
+        when(uploadService.uploadImage(file)).thenThrow(new IllegalArgumentException("empty"));
 
-        MockMultipartFile file = new MockMultipartFile(
-                "file", "test.png", "image/png", "test content".getBytes());
+        Result<Map<String, String>> result = controller.uploadImage(file, 1L);
 
-        mockMvc.perform(multipart("/api/upload/image")
-                        .file(file)
-                        .requestAttr("currentUserId", 1L))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(400))
-                .andExpect(jsonPath("$.message").value("文件为空"));
+        assertThat(result.getCode()).isEqualTo(400);
+        assertThat(result.getMessage()).isEqualTo("empty");
     }
 
     @Test
-    @DisplayName("POST /api/upload/image-IO 异常,业务码 500")
-    void uploadImage_IOError() throws Exception {
-        when(uploadService.uploadImage(any()))
-                .thenThrow(new IOException("磁盘满"));
+    void uploadImage_ReturnsServerErrorForIoException() throws Exception {
+        MockMultipartFile file = new MockMultipartFile("file", "a.png", "image/png", "x".getBytes());
+        when(uploadService.uploadImage(file)).thenThrow(new IOException("disk full"));
 
-        MockMultipartFile file = new MockMultipartFile(
-                "file", "test.png", "image/png", "test content".getBytes());
+        Result<Map<String, String>> result = controller.uploadImage(file, 1L);
 
-        mockMvc.perform(multipart("/api/upload/image")
-                        .file(file)
-                        .requestAttr("currentUserId", 1L))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(500))
-                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("磁盘满")));
+        assertThat(result.getCode()).isEqualTo(500);
+        assertThat(result.getMessage()).contains("disk full");
     }
 }

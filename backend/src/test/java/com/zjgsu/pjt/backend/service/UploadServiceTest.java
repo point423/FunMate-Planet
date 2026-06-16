@@ -1,181 +1,85 @@
 package com.zjgsu.pjt.backend.service;
 
-
-import org.junit.jupiter.api.BeforeEach;
-
-import org.junit.jupiter.api.DisplayName;
-
 import org.junit.jupiter.api.Test;
-
-import org.junit.jupiter.api.extension.ExtendWith;
-
 import org.junit.jupiter.api.io.TempDir;
-
-import org.mockito.InjectMocks;
-
-import org.mockito.Mock;
-
-import org.mockito.junit.jupiter.MockitoExtension;
-
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.util.ReflectionTestUtils;
 
-import org.springframework.web.multipart.MultipartFile;
-
-
-import java.io.IOException;
-
-import java.io.InputStream;
-
 import java.nio.file.Files;
-
 import java.nio.file.Path;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import static org.junit.jupiter.api.Assertions.*;
-
-import static org.mockito.ArgumentMatchers.any;
-
-import static org.mockito.Mockito.*;
-
-
-@ExtendWith(MockitoExtension.class)
-
-public class UploadServiceTest {
-
-
-    @Mock
-
-    private MultipartFile file;
-
-
-    @InjectMocks
-
-    private UploadService uploadService;
-
+class UploadServiceTest {
 
     @TempDir
-
-    Path tempDir;
-
-
-    @BeforeEach
-
-    void setUp() {
-
-        ReflectionTestUtils.setField(uploadService, "uploadDir", tempDir.toString() + "/");
-
-        ReflectionTestUtils.setField(uploadService, "uploadUrl", "http://localhost:8080/static/");
-
-    }
-
+    private Path tempDir;
 
     @Test
-
-    @DisplayName("上传图片-成功")
-
-    void uploadImage_Success() throws IOException {
-
-        // Given
-
-        when(file.isEmpty()).thenReturn(false);
-
-        when(file.getOriginalFilename()).thenReturn("test.png");
-
-        when(file.getInputStream()).thenReturn(InputStream.nullInputStream());
-
-
-        // When
+    void uploadImage_WritesFileAndReturnsPublicUrl() throws Exception {
+        UploadService uploadService = uploadService();
+        MockMultipartFile file = new MockMultipartFile(
+                "file",
+                "avatar.png",
+                "image/png",
+                "image-content".getBytes()
+        );
 
         String url = uploadService.uploadImage(file);
 
-
-        // Then
-
-        assertNotNull(url);
-
-        assertTrue(url.contains("test.png") || url.contains(".png"));
-
-        assertTrue(url.startsWith("http://localhost:8080/static/"));
-
+        assertThat(url).startsWith("https://cdn.example/static/");
+        assertThat(url).endsWith(".png");
+        String filename = url.substring("https://cdn.example/static/".length());
+        assertThat(Files.exists(tempDir.resolve(filename))).isTrue();
     }
 
-
     @Test
-
-    @DisplayName("上传图片-空文件异常")
-
-    void uploadImage_EmptyFile_Throws() {
-
-        // Given
-
-        when(file.isEmpty()).thenReturn(true);
-
-
-        // When & Then
-
-        assertThrows(IllegalArgumentException.class, () -> uploadService.uploadImage(file));
-
-    }
-
-
-    @Test
-
-    @DisplayName("上传图片-无扩展名默认.jpg")
-
-    void uploadImage_NoExtension_DefaultsToJpg() throws IOException {
-
-        // Given
-
-        when(file.isEmpty()).thenReturn(false);
-
-        when(file.getOriginalFilename()).thenReturn("photo");
-
-        when(file.getInputStream()).thenReturn(InputStream.nullInputStream());
-
-
-        // When
+    void uploadImage_UsesDefaultExtensionWhenOriginalNameHasNoExtension() throws Exception {
+        UploadService uploadService = uploadService();
+        MockMultipartFile file = new MockMultipartFile(
+                "file",
+                "avatar",
+                "image/jpeg",
+                "image-content".getBytes()
+        );
 
         String url = uploadService.uploadImage(file);
 
-
-        // Then
-
-        assertNotNull(url);
-
-        assertTrue(url.endsWith(".jpg"));
-
+        assertThat(url).endsWith(".jpg");
     }
 
-
     @Test
-
-    @DisplayName("上传图片-空文件名使用UUID")
-
-    void uploadImage_NullFilename_UsesUUID() throws IOException {
-
-        // Given
-
-        when(file.isEmpty()).thenReturn(false);
-
-        when(file.getOriginalFilename()).thenReturn(null);
-
-        when(file.getInputStream()).thenReturn(InputStream.nullInputStream());
-
-
-        // When
+    void uploadImage_UsesUuidAndDefaultExtensionWhenOriginalNameIsNull() throws Exception {
+        UploadService uploadService = uploadService();
+        MockMultipartFile file = new MockMultipartFile(
+                "file",
+                null,
+                "image/jpeg",
+                "image-content".getBytes()
+        );
 
         String url = uploadService.uploadImage(file);
 
-
-        // Then
-
-        assertNotNull(url);
-
-        // UUID 格式的 .jpg 文件名
-
-        assertTrue(url.matches(".*[a-f0-9-]{36}\\.jpg"));
-
+        assertThat(url).matches("https://cdn\\.example/static/[a-f0-9-]{36}\\.jpg");
     }
 
+    @Test
+    void uploadImage_RejectsNullOrEmptyFile() {
+        UploadService uploadService = uploadService();
+
+        assertThatThrownBy(() -> uploadService.uploadImage(null))
+                .isInstanceOf(IllegalArgumentException.class);
+
+        MockMultipartFile empty = new MockMultipartFile("file", new byte[0]);
+        assertThatThrownBy(() -> uploadService.uploadImage(empty))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    private UploadService uploadService() {
+        UploadService uploadService = new UploadService();
+        ReflectionTestUtils.setField(uploadService, "uploadDir", tempDir.toString());
+        ReflectionTestUtils.setField(uploadService, "uploadUrl", "https://cdn.example/static/");
+        return uploadService;
+    }
 }
-
