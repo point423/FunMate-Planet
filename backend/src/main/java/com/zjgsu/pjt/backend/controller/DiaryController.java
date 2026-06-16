@@ -1,13 +1,25 @@
 package com.zjgsu.pjt.backend.controller;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zjgsu.pjt.backend.common.Result;
 import com.zjgsu.pjt.backend.entity.ActivityDiary;
+import com.zjgsu.pjt.backend.entity.ActivityDiaryEntry;
 import com.zjgsu.pjt.backend.service.DiaryService;
+import com.zjgsu.pjt.backend.service.SharedJournalShowcaseService;
+import com.zjgsu.pjt.backend.util.FileStorageUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.multipart.MultipartHttpServletRequest;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/diaries")
@@ -17,51 +29,106 @@ public class DiaryController {
     @Autowired
     private DiaryService diaryService;
 
-    /**
-     * 终极修复：物理级绕过 Spring 的 Content-Type 检查
-     * 彻底解决 "multipart/form-data;...;charset=UTF-8 is not supported"
-     */
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    @Autowired
+    private SharedJournalShowcaseService sharedJournalShowcaseService;
+
     @PostMapping
     public Result<ActivityDiary> createDiary(HttpServletRequest request) {
-        // 1. 获取登录用户
         Object attr = request.getAttribute("currentUserId");
-        if (attr == null) return Result.error(401, "未授权");
+        if (attr == null) return Result.error(401, "Unauthorized");
         Long currentUserId = Long.valueOf(attr.toString());
 
         try {
-            // 2. 手动构造对象。getParameter 方法会自动触发表单解析
-            // 即使 Content-Type 包含非标的 charset，Servlet 容器通常也能兼容处理
+            ObjectMapper mapper = objectMapper;
             ActivityDiary diary = new ActivityDiary();
             diary.setUserId(currentUserId);
-            diary.setContent(request.getParameter("content"));
-            diary.setImages(request.getParameter("images"));
-            diary.setTags(request.getParameter("tags"));
-            
-            String aid = request.getParameter("activityId");
-            if (aid != null && !aid.trim().isEmpty()) {
-                diary.setActivityId(Long.valueOf(aid));
+
+            if (isJsonRequest(request)) {
+                ActivityDiary requestBody = mapper.readValue(request.getInputStream(), ActivityDiary.class);
+                diary.setContent(requestBody.getContent());
+                diary.setTitle(requestBody.getTitle());
+                diary.setTags(requestBody.getTags());
+                diary.setImages(requestBody.getImages());
+                diary.setActivityId(requestBody.getActivityId());
+            } else {
+                diary.setContent(request.getParameter("content"));
+                diary.setTitle(request.getParameter("title"));
+                diary.setTags(request.getParameter("tags"));
+
+                String aid = request.getParameter("activityId");
+                if (aid != null && !aid.trim().isEmpty()) {
+                    diary.setActivityId(Long.valueOf(aid));
+                }
             }
 
-            // 3. 调用 Service
-            ActivityDiary saved = diaryService.createDiary(diary);
+            String participantIdsStr = request.getParameter("participantIds");
+            List<Long> participantIds = new ArrayList<>();
+            if (participantIdsStr != null && !participantIdsStr.trim().isEmpty()) {
+                participantIds = mapper.readValue(participantIdsStr, new TypeReference<List<Long>>() {});
+            }
+
+            List<MultipartFile> files = new ArrayList<>();
+            if (request instanceof MultipartHttpServletRequest multipartRequest) {
+                files = multipartRequest.getFiles("files");
+            }
+
+            List<String> imageUrls = new ArrayList<>();
+            for (MultipartFile file : files) {
+                if (!file.isEmpty()) {
+                    String url = FileStorageUtil.saveFile(file);
+                    if (url != null) imageUrls.add(url);
+                }
+            }
+
+            if (!imageUrls.isEmpty()) {
+                diary.setImages(mapper.writeValueAsString(imageUrls));
+            } else if (!isJsonRequest(request)) {
+                diary.setImages(null);
+            }
+
+            ActivityDiary saved = participantIds.isEmpty()
+                    ? diaryService.createDiary(diary)
+                    : diaryService.createDiaryWithParticipants(diary, participantIds);
             return Result.created(saved);
         } catch (Exception e) {
-            return Result.error(500, "日记保存失败（系统异常）: " + e.getMessage());
+            e.printStackTrace();
+            return Result.error(500, "Diary save failed: " + e.getMessage());
         }
     }
 
+    private boolean isJsonRequest(HttpServletRequest request) {
+        String contentType = request.getContentType();
+        return contentType != null && contentType.toLowerCase().contains("application/json");
+    }
+
     @GetMapping
-    public Result<Page<ActivityDiary>> getDiaries(@RequestParam(required = false) Long userId,
-                                                  @RequestParam(defaultValue = "1") int pageNum,
-                                                  @RequestParam(defaultValue = "10") int pageSize) {
+    public Result<Page<Map<String, Object>>> getDiaries(@RequestParam(required = false) Long userId,
+                                                        @RequestParam(defaultValue = "1") int pageNum,
+                                                        @RequestParam(defaultValue = "10") int pageSize,
+                                                        @RequestAttribute("currentUserId") Long currentUserId) {
+        Long resolvedUserId = userId != null ? userId : currentUserId;
         PageRequest pageRequest = PageRequest.of(Math.max(pageNum - 1, 0), pageSize);
-        return Result.success(diaryService.getDiaries(userId, pageRequest));
+        return Result.success(diaryService.getDiariesWithParticipants(resolvedUserId, pageRequest));
     }
 
     @GetMapping("/{id}")
-    public Result<ActivityDiary> getDiaryDetail(@PathVariable Long id) {
+    public Result<Map<String, Object>> getDiaryDetail(@PathVariable Long id,
+                                                      @RequestAttribute("currentUserId") Long currentUserId) {
         ActivityDiary diary = diaryService.findById(id);
-        return diary != null ? Result.success(diary) : Result.error(404, "日记不存在");
+        if (diary == null) return Result.error(404, "Diary not found");
+        if (!diaryService.canAccessDiary(id, currentUserId)) {
+            return Result.error(403, "No permission to view this diary");
+        }
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("diary", diary);
+        response.put("participants", diaryService.getParticipantsByDiaryId(id));
+        response.put("participantCount", diaryService.getParticipantsByDiaryId(id).size());
+        response.put("sharedEntries", diaryService.getSharedEntriesByDiaryId(id));
+        return Result.success(response);
     }
 
     @PutMapping("/{id}")
@@ -69,18 +136,58 @@ public class DiaryController {
                                              @RequestBody ActivityDiary diary,
                                              HttpServletRequest request) {
         Object attr = request.getAttribute("currentUserId");
-        if (attr == null) return Result.error(401, "未授权");
+        if (attr == null) return Result.error(401, "Unauthorized");
         Long currentUserId = Long.valueOf(attr.toString());
         ActivityDiary updated = diaryService.updateDiary(id, diary, currentUserId);
-        return updated != null ? Result.success(updated) : Result.error(403, "无权修改");
+        return updated != null ? Result.success(updated) : Result.error(403, "No permission to update");
+    }
+
+    @PutMapping("/{id}/entries/me")
+    public Result<Map<String, Object>> updateMySharedEntry(@PathVariable Long id,
+                                                           @RequestBody ActivityDiaryEntry entry,
+                                                           HttpServletRequest request) {
+        Object attr = request.getAttribute("currentUserId");
+        if (attr == null) return Result.error(401, "Unauthorized");
+        Long currentUserId = Long.valueOf(attr.toString());
+        if (!diaryService.canAccessDiary(id, currentUserId)) {
+            return Result.error(403, "No permission to update this diary");
+        }
+
+        ActivityDiaryEntry updated = diaryService.updateSharedEntry(id, currentUserId, entry);
+        if (updated == null) {
+            return Result.error(403, "No permission to update or diary not found");
+        }
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("entry", updated);
+        return Result.success(response);
+    }
+
+    @PostMapping("/{id}/share-me")
+    public Result<Map<String, Object>> shareMyEntry(@PathVariable Long id,
+                                                    HttpServletRequest request) {
+        Object attr = request.getAttribute("currentUserId");
+        if (attr == null) return Result.error(401, "Unauthorized");
+        Long currentUserId = Long.valueOf(attr.toString());
+        if (!diaryService.canAccessDiary(id, currentUserId)) {
+            return Result.error(403, "No permission to access this diary");
+        }
+
+        try {
+            Map<String, Object> response = new HashMap<>();
+            response.put("showcase", sharedJournalShowcaseService.shareMyEntry(id, currentUserId));
+            return Result.success(response);
+        } catch (IllegalArgumentException e) {
+            return Result.error(400, e.getMessage());
+        }
     }
 
     @DeleteMapping("/{id}")
     public Result<String> deleteDiary(@PathVariable Long id, HttpServletRequest request) {
         Object attr = request.getAttribute("currentUserId");
-        if (attr == null) return Result.error(401, "未授权");
+        if (attr == null) return Result.error(401, "Unauthorized");
         Long currentUserId = Long.valueOf(attr.toString());
         boolean success = diaryService.deleteDiary(id, currentUserId);
-        return success ? Result.success("日记已删除") : Result.error(403, "无权删除");
+        return success ? Result.success("Diary deleted") : Result.error(403, "No permission to delete");
     }
 }

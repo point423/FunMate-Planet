@@ -65,7 +65,7 @@
         </div>
         <p class="match-meta">
           📍 {{ formatDistance(matchedUser.distance) }} &nbsp;·&nbsp;
-          ⭐ {{ formatScore(matchedUser.score) }}
+          {{ formatScore(matchedUser.score, matchedUser.reviewCount) }}
         </p>
         <div class="match-btns">
           <button
@@ -150,6 +150,7 @@ const normalizeNearbyUser = (raw: any): NearbyUser => ({
   activities: Number(raw?.activities ?? 0),
   // 修复：兼容后端分数变成对象的情况
   score: typeof raw?.averageScore === 'object' ? Number(raw.averageScore.parsedValue) : Number(raw?.averageScore ?? 0),
+  reviewCount: raw?.reviewCount == null ? undefined : Number(raw.reviewCount),
   distance: Number(raw?.distance ?? 0),
 });
 

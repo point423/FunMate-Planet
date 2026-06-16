@@ -16,6 +16,8 @@ import com.zjgsu.pjt.backend.entity.ActivityDiary;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import java.util.List;
 
@@ -23,4 +25,20 @@ import java.util.List;
 public interface ActivityDiaryRepository extends JpaRepository<ActivityDiary, Long> {
     List<ActivityDiary> findByUserId(Long userId);
     Page<ActivityDiary> findByUserId(Long userId, Pageable pageable);
+
+    @Query(
+            value = "select distinct d from ActivityDiary d " +
+                    "left join ActivityParticipant p on p.activityId = d.activityId " +
+                    "where d.userId = :userId or p.userId = :userId " +
+                    "order by d.createTime desc",
+            countQuery = "select count(distinct d.id) from ActivityDiary d " +
+                    "left join ActivityParticipant p on p.activityId = d.activityId " +
+                    "where d.userId = :userId or p.userId = :userId"
+    )
+    Page<ActivityDiary> findRelevantByUserId(@Param("userId") Long userId, Pageable pageable);
+
+    @Query("select case when count(d) > 0 then true else false end " +
+            "from Activity a left join ActivityDiary d on d.activityId = a.id " +
+            "where a.id = :activityId")
+    boolean existsByActivityId(@Param("activityId") Long activityId);
 }

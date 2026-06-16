@@ -35,7 +35,7 @@ public class FriendService {
 
         List<Long> friendIds = friendships.stream()
             .map(Friendship::getFriendId)
-            .filter(friendId -> friendshipRepository.findByUserIdAndFriendId(friendId, userId) != null)
+            .filter(friendId -> !friendshipRepository.findAllByUserIdAndFriendId(friendId, userId).isEmpty())
             .distinct()
             .collect(Collectors.toList());
 
@@ -48,12 +48,12 @@ public class FriendService {
 
     @Transactional
     public boolean deleteFriend(Long userId, Long friendId) {
-        Friendship friendship = friendshipRepository.findByUserIdAndFriendId(userId, friendId);
-        if (friendship != null) {
-            friendshipRepository.delete(friendship);
-            Friendship reverseFriendship = friendshipRepository.findByUserIdAndFriendId(friendId, userId);
-            if (reverseFriendship != null) {
-                friendshipRepository.delete(reverseFriendship);
+        List<Friendship> friendships = friendshipRepository.findAllByUserIdAndFriendId(userId, friendId);
+        if (!friendships.isEmpty()) {
+            friendshipRepository.deleteAll(friendships);
+            List<Friendship> reverseFriendships = friendshipRepository.findAllByUserIdAndFriendId(friendId, userId);
+            if (!reverseFriendships.isEmpty()) {
+                friendshipRepository.deleteAll(reverseFriendships);
             }
             return true;
         }
@@ -100,19 +100,23 @@ public class FriendService {
             friendRequestRepository.save(req);
 
             if (accept) {
-                Friendship friendship1 = new Friendship();
-                friendship1.setUserId(req.getSenderId());
-                friendship1.setFriendId(req.getReceiverId());
-                friendshipRepository.save(friendship1);
-
-                Friendship friendship2 = new Friendship();
-                friendship2.setUserId(req.getReceiverId());
-                friendship2.setFriendId(req.getSenderId());
-                friendshipRepository.save(friendship2);
+                ensureFriendship(req.getSenderId(), req.getReceiverId());
+                ensureFriendship(req.getReceiverId(), req.getSenderId());
             }
             return true;
         }
         return false;
+    }
+
+    private void ensureFriendship(Long userId, Long friendId) {
+        if (!friendshipRepository.findAllByUserIdAndFriendId(userId, friendId).isEmpty()) {
+            return;
+        }
+
+        Friendship friendship = new Friendship();
+        friendship.setUserId(userId);
+        friendship.setFriendId(friendId);
+        friendshipRepository.save(friendship);
     }
 
     @Transactional

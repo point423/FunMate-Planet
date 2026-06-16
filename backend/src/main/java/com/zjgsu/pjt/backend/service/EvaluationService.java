@@ -25,7 +25,7 @@ public class EvaluationService {
     @Transactional
     public UserEvaluation createEvaluation(UserEvaluation evaluation) {
         UserEvaluation saved = evaluationRepository.save(evaluation);
-        updateUserAverageScore(evaluation.getTargetId());
+        updateUserPositiveFeedbackRate(evaluation.getTargetId());
         return saved;
     }
 
@@ -53,7 +53,7 @@ public class EvaluationService {
             existing.setScoreLevel(updated.getScoreLevel());
             existing.setActivityId(updated.getActivityId());
             UserEvaluation saved = evaluationRepository.save(existing);
-            updateUserAverageScore(existing.getTargetId());
+            updateUserPositiveFeedbackRate(existing.getTargetId());
             return saved;
         }
         return null;
@@ -68,18 +68,24 @@ public class EvaluationService {
         if (evaluation != null && Objects.equals(evaluation.getEvaluatorId(), currentUserId)) {
             Long targetId = evaluation.getTargetId();
             evaluationRepository.deleteById(id);
-            updateUserAverageScore(targetId);
+            updateUserPositiveFeedbackRate(targetId);
             return true;
         }
         return false;
     }
 
-    private void updateUserAverageScore(Long targetId) {
+    private void updateUserPositiveFeedbackRate(Long targetId) {
         List<UserEvaluation> evals = evaluationRepository.findByTargetId(targetId);
-        double avg = evals.stream().mapToInt(UserEvaluation::getScoreLevel).average().orElse(0.0);
+        long total = evals.stream()
+                .filter(eval -> eval.getScoreLevel() != null)
+                .count();
+        long positive = evals.stream()
+                .filter(eval -> eval.getScoreLevel() != null && eval.getScoreLevel() == 3)
+                .count();
+        double positiveRate = total == 0 ? 0.0 : (positive * 100.0 / total);
         User target = userRepository.findById(targetId).orElse(null);
         if (target != null) {
-            target.setAverageScore(avg);
+            target.setAverageScore(Math.round(positiveRate * 10.0) / 10.0);
             userRepository.save(target);
         }
     }

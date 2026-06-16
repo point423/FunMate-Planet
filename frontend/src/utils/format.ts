@@ -13,5 +13,8 @@ export const formatDistance = (km?: number | null) => {
   return n < 1 ? `${Math.round(n * 1000)}m` : `${n.toFixed(1)}km`
 }
 
-export const formatScore = (score: number) =>
-  `⭐ ${score.toFixed(2)}`
+export const formatScore = (score: number, reviewCount?: number) => {
+  if (reviewCount === 0) return 'No reviews yet'
+  const value = Number.isFinite(Number(score)) ? Number(score) : 0
+  return `${Math.round(value)}% positive`
+}

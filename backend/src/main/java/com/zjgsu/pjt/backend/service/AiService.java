@@ -12,99 +12,174 @@ import java.time.Duration;
 @Service
 public class AiService {
 
-    // 将默认值改为 localhost 以适配您的测试环境
-    @Value("${ai.base-url:http://localhost:11434}")
+    /**
+     * 兼容 OpenAI Chat Completions 协议的 base URL。
+     * 例如:
+     *   - https://api.deepseek.com/v1
+     *   - https://api.openai.com/v1
+     *   - http://ollama:11434/v1            (本地 Ollama,需 0.1.14+)
+     *
+     * 重要:Spring 内部将环境变量 AI_BASE_URL / AI_API_KEY 解析为
+     *   ai.base.url / ai.api.key (下划线转点),@Value 严格匹配,
+     *   所以这里要用点分形式才能正确读取。
+     */
+    @Value("${ai.base.url:https://api.deepseek.com/v1}")
     private String baseUrl;
 
-    @Value("${ai.model:qwen2.5:1.5b}")
+    @Value("${ai.model:deepseek-chat}")
     private String model;
+
+    @Value("${ai.api.key:}")
+    private String apiKey;
 
     /**
      * 生成活动建议
      */
     public String generateActivitySuggestion(String userTags, String userLocation, String userQuery) {
-        String prompt = String.format("你是一个社交星球助手。用户标签[%s]，位置[%s]。请求：%s。请给出100字内的幽默风趣建议。",
+        String userMessage = String.format(
+                "用户标签[%s],位置[%s]。请求:%s。请用 100 字以内、幽默风趣的口吻给出活动建议。",
                 userTags, userLocation, userQuery);
-        return callAi(prompt);
+
+        return chatCompletion(
+                "你是一个叫「趣搭星球小助手」的搭子匹配顾问,熟悉中国年轻人的线下兴趣社交场景。",
+                userMessage);
     }
 
     /**
-     * 生成活动总结 (修复 AiController 编译错误)
-     * 接收三个 String 参数：title, participants, reviews
+     * 统一的 OpenAI 兼容 Chat Completions 调用。
+     * 适配:
+     *   - DeepSeek
+     *   - OpenAI
+     *   - Ollama (0.1.14+ 暴露 /v1/chat/completions)
+     *   - 其他所有 OpenAI 兼容服务
      */
-    public String generateActivitySummary(String title, String participants, String reviews) {
-        String prompt = String.format("请为活动'%s'写一段简短的总结。参与者：%s。评价回顾：%s要求：字数50字左右，风格积极向上，带一点社交感。",
-                title, participants, reviews);
-        return callAi(prompt);
-    }
-
-    /**
-     * 统一的 AI 调用逻辑
-     */
-    private String callAi(String prompt) {
-        // 处理 URL 拼接
+    private String chatCompletion(String systemPrompt, String userMessage) {
+        // 1. 拼接 URL: 去掉尾部斜杠,补 /chat/completions
         String url = baseUrl.trim();
-        if (url.endsWith("/v1")) url = url.substring(0, url.length() - 3);
-        if (!url.endsWith("/")) url += "/";
-        url += "api/generate";
+        if (url.endsWith("/")) {
+            url = url.substring(0, url.length() - 1);
+        }
+        url += "/chat/completions";
 
-        // 处理 JSON 转义，防止特殊字符导致 Payload 损坏
-        String escapedPrompt = prompt.replace("\\", "\\\\")
-                                     .replace("\"", "\\\"")
-                                     .replace("\n", "\\n")
-                                     .replace("\r", "\\r");
-
+        // 2. 构造 JSON 请求体 (OpenAI messages 格式)
         String jsonPayload = String.format("""
             {
                 "model": "%s",
-                "prompt": "%s",
-                "stream": false
+                "messages": [
+                    {"role": "system", "content": "%s"},
+                    {"role": "user", "content": "%s"}
+                ],
+                "stream": false,
+                "temperature": 0.8
             }
-            """, model, escapedPrompt);
+            """,
+                escapeJson(model),
+                escapeJson(systemPrompt),
+                escapeJson(userMessage));
 
-        System.out.println(">>> [AI-Direct] 发起请求 URL: " + url);
+        System.out.println(">>> [AI-Chat] 请求 URL: " + url + " | model: " + model);
 
         try (HttpClient client = HttpClient.newBuilder()
-                .connectTimeout(Duration.ofSeconds(20)) // 增加建立连接的超时
+                .connectTimeout(Duration.ofSeconds(20))
                 .build()) {
 
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(url))
                     .header("Content-Type", "application/json")
+                    .header("Authorization", "Bearer " + apiKey)
                     .POST(HttpRequest.BodyPublishers.ofString(jsonPayload))
-                    .timeout(Duration.ofSeconds(600)) // 将总超时正式改为 600 秒
+                    .timeout(Duration.ofSeconds(120))
                     .build();
 
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
 
-            if (response.statusCode() == 200) {
-                String body = response.body();
-                // 健壮的 JSON 响应提取逻辑
-                try {
-                    int start = body.indexOf("\"response\":\"") + 12;
-                    int end = body.indexOf("\"", start);
-                    // 循环寻找未转义的引号作为结束
-                    while (end > 0 && body.charAt(end - 1) == '\\') {
-                        end = body.indexOf("\"", end + 1);
-                    }
-                    if (start > 11 && end > start) {
-                        return body.substring(start, end)
-                                .replace("\\n", "\n")
-                                .replace("\\\"", "\"");
-                    }
-                } catch (Exception e) {
-                    System.err.println(">>> [AI-Direct] 解析响应失败，全文: " + body);
+            int status = response.statusCode();
+            String body = response.body();
+
+            if (status == 200) {
+                // OpenAI 标准响应: choices[0].message.content
+                String content = extractMessageContent(body);
+                if (content != null && !content.isBlank()) {
+                    return content;
                 }
-                return body;
+                System.err.println(">>> [AI-Chat] 解析响应失败,全文: " + body);
+                return "AI 助手返回为空,请稍后再试。";
             } else {
-                return "AI 助手繁忙 (HTTP " + response.statusCode() + ")";
+                System.err.println(">>> [AI-Chat] HTTP " + status + ": " + body);
+                if (status == 401) {
+                    return "AI 助手认证失败,请检查 AI_API_KEY 是否正确。";
+                }
+                if (status == 429) {
+                    return "AI 助手调用太频繁,请稍后再试。";
+                }
+                return "AI 助手繁忙 (HTTP " + status + ")";
             }
         } catch (HttpTimeoutException te) {
-            System.err.println(">>> [AI-Direct] 调用超时 (600s): " + te.getMessage());
-            return "AI 思考时间过长，请确保模型已下载且硬件资源充足。";
+            System.err.println(">>> [AI-Chat] 调用超时: " + te.getMessage());
+            return "AI 思考时间过长,请稍后再试。";
         } catch (Exception e) {
-            System.err.println(">>> [AI-Direct] 调用异常: " + e.getClass().getSimpleName() + " - " + e.getMessage());
+            System.err.println(">>> [AI-Chat] 调用异常: " + e.getClass().getSimpleName() + " - " + e.getMessage());
             return "AI 助手连接失败 (" + e.getMessage() + ")";
         }
+    }
+
+    /**
+     * 极简 JSON 字符串转义(只处理常见字符,够用)。
+     */
+    private String escapeJson(String s) {
+        if (s == null) return "";
+        return s.replace("\\", "\\\\")
+                .replace("\"", "\\\"")
+                .replace("\n", "\\n")
+                .replace("\r", "\\r")
+                .replace("\t", "\\t");
+    }
+
+    /**
+     * 从 OpenAI 兼容响应中提取 choices[0].message.content。
+     * 不引入 JSON 库,手写简单解析以避免依赖。
+     */
+    private String extractMessageContent(String body) {
+        if (body == null) return null;
+        // 找 "content":"..." 这一段
+        String marker = "\"content\":\"";
+        int idx = body.indexOf(marker);
+        if (idx < 0) return null;
+        int start = idx + marker.length();
+        StringBuilder sb = new StringBuilder();
+        for (int i = start; i < body.length(); i++) {
+            char c = body.charAt(i);
+            if (c == '\\' && i + 1 < body.length()) {
+                char next = body.charAt(i + 1);
+                switch (next) {
+                    case 'n' -> { sb.append('\n'); i++; }
+                    case 'r' -> { sb.append('\r'); i++; }
+                    case 't' -> { sb.append('\t'); i++; }
+                    case '"' -> { sb.append('"'); i++; }
+                    case '\\' -> { sb.append('\\'); i++; }
+                    case '/' -> { sb.append('/'); i++; }
+                    case 'u' -> {
+                        // 处理 unicode 转义 (反斜杠 u 加 4 位 hex)
+                        if (i + 5 < body.length()) {
+                            String hex = body.substring(i + 2, i + 6);
+                            try {
+                                sb.append((char) Integer.parseInt(hex, 16));
+                                i += 5;
+                            } catch (NumberFormatException e) {
+                                sb.append(c);
+                            }
+                        } else {
+                            sb.append(c);
+                        }
+                    }
+                    default -> sb.append(c);
+                }
+            } else if (c == '"') {
+                return sb.toString();
+            } else {
+                sb.append(c);
+            }
+        }
+        return sb.toString();
     }
 }

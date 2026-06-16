@@ -9,10 +9,13 @@ export interface UserInfo {
   tags: string[]
   activities: number
   score: number
+  reviewCount?: number
   ranking: number
   longitude?: number
   latitude?: number
   createdAt: string
+  publicJournals?: JournalThumb[]
+  recentActivities?: ActivityItem[]
 }
 
 export interface LoginForm {
@@ -29,14 +32,14 @@ export interface RegisterForm {
 
 export interface NearbyUser extends UserInfo {
   distance: number  // km
-  publicJournals: JournalThumb[]
-  recentActivities: ActivityItem[]
 }
 
 export interface JournalThumb {
   id: number
   coverImage: string
   title: string
+  excerpt?: string
+  sharedEntryId?: number
 }
 
 export interface ActivityItem {

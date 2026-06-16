@@ -1,13 +1,28 @@
 package com.zjgsu.pjt.backend.service;
 
+import com.zjgsu.pjt.backend.dto.UserProfileResponse;
+import com.zjgsu.pjt.backend.entity.Activity;
+import com.zjgsu.pjt.backend.entity.ActivityParticipant;
+import com.zjgsu.pjt.backend.entity.SharedJournalShowcase;
 import com.zjgsu.pjt.backend.entity.User;
+import com.zjgsu.pjt.backend.repository.ActivityParticipantRepository;
+import com.zjgsu.pjt.backend.repository.ActivityRepository;
+import com.zjgsu.pjt.backend.repository.SharedJournalShowcaseRepository;
+import com.zjgsu.pjt.backend.repository.UserEvaluationRepository;
 import com.zjgsu.pjt.backend.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.geo.Point;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
+
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 @Service
 public class UserService {
@@ -17,6 +32,18 @@ public class UserService {
 
     @Autowired
     private StringRedisTemplate stringRedisTemplate;
+
+    @Autowired
+    private SharedJournalShowcaseRepository sharedJournalShowcaseRepository;
+
+    @Autowired
+    private ActivityParticipantRepository activityParticipantRepository;
+
+    @Autowired
+    private ActivityRepository activityRepository;
+
+    @Autowired
+    private UserEvaluationRepository userEvaluationRepository;
 
     private static final String GEO_KEY = "user:location";
 
@@ -28,16 +55,23 @@ public class UserService {
         return userRepository.save(user);
     }
 
-    public User findById(Long id) {
+    public User findEntityById(Long id) {
         return userRepository.findById(id).orElse(null);
     }
 
-    public List<User> getAllUsers() {
-        return userRepository.findAll();
+    public UserProfileResponse findById(Long id) {
+        User user = findEntityById(id);
+        return user != null ? buildProfile(user) : null;
+    }
+
+    public List<UserProfileResponse> getAllUsers() {
+        return userRepository.findAll().stream()
+                .map(this::buildProfile)
+                .toList();
     }
 
     public User updateUser(Long id, User user) {
-        User existing = findById(id);
+        User existing = findEntityById(id);
         if (existing != null) {
             if (user.getNickname() != null) existing.setNickname(user.getNickname());
             if (user.getAvatar() != null) existing.setAvatar(user.getAvatar());
@@ -51,7 +85,7 @@ public class UserService {
     }
 
     public User updateProfile(Long id, User profile) {
-        User user = findById(id);
+        User user = findEntityById(id);
         if (user != null) {
             if (profile.getNickname() != null) user.setNickname(profile.getNickname());
             if (profile.getAvatar() != null) user.setAvatar(profile.getAvatar());
@@ -74,12 +108,105 @@ public class UserService {
     }
 
     public void updateLocation(Long id, Double lng, Double lat) {
-        User user = findById(id);
+        User user = findEntityById(id);
         if (user != null) {
             user.setLongitude(lng);
             user.setLatitude(lat);
             userRepository.save(user);
             stringRedisTemplate.opsForGeo().add(GEO_KEY, new Point(lng, lat), id.toString());
         }
+    }
+
+    private UserProfileResponse buildProfile(User user) {
+        UserProfileResponse profile = new UserProfileResponse();
+        profile.setId(user.getId());
+        profile.setUsername(user.getUsername());
+        profile.setNickname(user.getNickname());
+        profile.setAvatar(user.getAvatar());
+        profile.setBio(user.getBio());
+        profile.setLongitude(user.getLongitude());
+        profile.setLatitude(user.getLatitude());
+        profile.setCreatedAt(user.getCreateTime() != null ? user.getCreateTime().toString() : "");
+        FeedbackStats feedbackStats = buildFeedbackStats(user.getId());
+        profile.setScore(feedbackStats.positiveRate());
+        profile.setReviewCount(feedbackStats.reviewCount());
+        profile.setTags(parseTags(user.getTags()));
+        profile.setPublicJournals(buildPublicJournals(user.getId()));
+        profile.setRecentActivities(buildRecentActivities(user.getId()));
+        profile.setActivities(profile.getRecentActivities().size());
+        return profile;
+    }
+
+    private FeedbackStats buildFeedbackStats(Long userId) {
+        var evaluations = userEvaluationRepository.findByTargetId(userId);
+        int total = (int) evaluations.stream()
+                .filter(evaluation -> evaluation.getScoreLevel() != null)
+                .count();
+        long positive = evaluations.stream()
+                .filter(evaluation -> evaluation.getScoreLevel() != null && evaluation.getScoreLevel() == 3)
+                .count();
+        double positiveRate = total == 0 ? 0.0 : Math.round((positive * 1000.0 / total)) / 10.0;
+        return new FeedbackStats(positiveRate, total);
+    }
+
+    private record FeedbackStats(Double positiveRate, Integer reviewCount) {}
+
+    private List<String> parseTags(String rawTags) {
+        if (rawTags == null || rawTags.isBlank()) return List.of();
+        return List.of(rawTags.split(",")).stream()
+                .map(String::trim)
+                .filter(tag -> !tag.isEmpty())
+                .toList();
+    }
+
+    private List<Map<String, Object>> buildPublicJournals(Long userId) {
+        return sharedJournalShowcaseRepository.findByUserIdOrderByCreateTimeDesc(userId).stream()
+                .map(this::toJournalThumb)
+                .toList();
+    }
+
+    private Map<String, Object> toJournalThumb(SharedJournalShowcase showcase) {
+        Map<String, Object> item = new HashMap<>();
+        item.put("id", showcase.getDiaryId());
+        item.put("coverImage", showcase.getCoverImage());
+        item.put("title", showcase.getTitle());
+        item.put("excerpt", showcase.getExcerpt());
+        item.put("sharedEntryId", showcase.getDiaryEntryId());
+        return item;
+    }
+
+    private List<Map<String, Object>> buildRecentActivities(Long userId) {
+        List<ActivityParticipant> records = activityParticipantRepository.findByUserId(userId);
+        Set<Long> activityIds = new LinkedHashSet<>();
+        for (ActivityParticipant record : records) {
+            if (record.getActivityId() != null) {
+                activityIds.add(record.getActivityId());
+            }
+        }
+
+        return activityRepository.findByIdIn(activityIds).stream()
+                .sorted(Comparator.comparing(Activity::getActivityTime, Comparator.nullsLast(Comparator.reverseOrder())))
+                .limit(5)
+                .map(activity -> {
+                    Map<String, Object> item = new HashMap<>();
+                    item.put("id", activity.getId());
+                    item.put("icon", "•");
+                    item.put("name", activity.getTitle());
+                    item.put("date", activity.getActivityTime() != null ? activity.getActivityTime().toString() : "");
+                    item.put("participants", buildActivityParticipantAvatars(activity.getId()));
+                    return item;
+                })
+                .toList();
+    }
+
+    private List<String> buildActivityParticipantAvatars(Long activityId) {
+        List<String> avatars = new ArrayList<>();
+        for (ActivityParticipant participant : activityParticipantRepository.findByActivityId(activityId)) {
+            User user = findEntityById(participant.getUserId());
+            if (user != null && user.getAvatar() != null) {
+                avatars.add(user.getAvatar());
+            }
+        }
+        return avatars;
     }
 }

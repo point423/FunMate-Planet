@@ -2,6 +2,7 @@ package com.zjgsu.pjt.backend.entity;
 
 import jakarta.persistence.*;
 import lombok.Data;
+
 import java.time.LocalDateTime;
 
 @Entity
@@ -20,6 +21,9 @@ public class Activity {
 
     private String description;
 
+    @Column(name = "plan", columnDefinition = "TEXT")
+    private String plan;
+
     @Column(name = "activity_time")
     private LocalDateTime activityTime;
 
@@ -28,8 +32,11 @@ public class Activity {
     @Column(name = "max_participants")
     private Integer maxParticipants;
 
-    private Integer status = 0; // 0:招募中, 1:进行中, 2:已结束
+    private Integer status;
 
     @Column(name = "create_time", updatable = false)
     private LocalDateTime createTime = LocalDateTime.now();
+
+    @Transient
+    private Long inviteeId;
 }

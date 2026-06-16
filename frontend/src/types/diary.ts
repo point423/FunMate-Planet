@@ -8,9 +8,13 @@ export interface Diary {
   photos: string[]
   entries: DiaryEntry[]
   participants: DiaryParticipant[]
+  sharedEntries?: SharedDiaryEntryPayload[]
   location: string
   endTime: string
   createdAt: string
+  createTime?: string
+  images?: string[] | string
+  content?: string
 }
 
 export interface DiaryEntry {
@@ -27,6 +31,25 @@ export interface DiaryParticipant {
   nickname: string
   avatar: string
   rating?: 'good' | 'neutral' | 'bad'
+}
+
+export interface SharedDiaryEntry {
+  id: number
+  diaryId: number
+  userId: number
+  content: string
+  images: string[] | string
+  createTime: string
+  updateTime: string
+}
+
+export interface SharedDiaryEntryPayload {
+  user: {
+    id: number
+    nickname: string
+    avatar: string
+  }
+  entry: SharedDiaryEntry
 }
 
 export interface DiaryCreateForm {
