@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -33,9 +34,10 @@ class UploadControllerTest {
     @Test
     void uploadImage_ReturnsCreatedUrl() throws Exception {
         MockMultipartFile file = new MockMultipartFile("file", "a.png", "image/png", "x".getBytes());
-        when(uploadService.uploadImage(file)).thenReturn("https://cdn.example/a.png");
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        when(uploadService.uploadImage(file, request)).thenReturn("https://cdn.example/a.png");
 
-        Result<Map<String, String>> result = controller.uploadImage(file, 1L);
+        Result<Map<String, String>> result = controller.uploadImage(file, request, 1L);
 
         assertThat(result.getCode()).isEqualTo(0);
         assertThat(result.getMessage()).isEqualTo("created");
@@ -45,9 +47,10 @@ class UploadControllerTest {
     @Test
     void uploadImage_ReturnsBadRequestForInvalidFile() throws Exception {
         MockMultipartFile file = new MockMultipartFile("file", new byte[0]);
-        when(uploadService.uploadImage(file)).thenThrow(new IllegalArgumentException("empty"));
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        when(uploadService.uploadImage(file, request)).thenThrow(new IllegalArgumentException("empty"));
 
-        Result<Map<String, String>> result = controller.uploadImage(file, 1L);
+        Result<Map<String, String>> result = controller.uploadImage(file, request, 1L);
 
         assertThat(result.getCode()).isEqualTo(400);
         assertThat(result.getMessage()).isEqualTo("empty");
@@ -56,9 +59,10 @@ class UploadControllerTest {
     @Test
     void uploadImage_ReturnsServerErrorForIoException() throws Exception {
         MockMultipartFile file = new MockMultipartFile("file", "a.png", "image/png", "x".getBytes());
-        when(uploadService.uploadImage(file)).thenThrow(new IOException("disk full"));
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        when(uploadService.uploadImage(file, request)).thenThrow(new IOException("disk full"));
 
-        Result<Map<String, String>> result = controller.uploadImage(file, 1L);
+        Result<Map<String, String>> result = controller.uploadImage(file, request, 1L);
 
         assertThat(result.getCode()).isEqualTo(500);
         assertThat(result.getMessage()).contains("disk full");

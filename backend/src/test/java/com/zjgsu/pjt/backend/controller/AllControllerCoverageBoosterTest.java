@@ -27,6 +27,7 @@ import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
@@ -332,7 +333,8 @@ class AllControllerCoverageBoosterTest {
         UploadController uploadController = new UploadController();
         ReflectionTestUtils.setField(uploadController, "uploadService", uploadService);
         MockMvc uploadMvc = MockMvcBuilders.standaloneSetup(uploadController).build();
-        when(uploadService.uploadImage(any())).thenReturn("http://localhost:8080/static/test.png");
+        when(uploadService.uploadImage(any(), any(MockHttpServletRequest.class)))
+                .thenReturn("http://localhost:8080/static/test.png");
         MockMultipartFile file = new MockMultipartFile("file", "test.png", "image/png", "test".getBytes());
         uploadMvc.perform(multipart("/api/upload/image").file(file).requestAttr("currentUserId", 1L))
                 .andExpect(status().isOk());

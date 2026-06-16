@@ -9,6 +9,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
+import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.*;
@@ -362,16 +363,20 @@ public class AllServiceCoverageBoosterTest {
         UploadService svc = new UploadService();
         ReflectionTestUtils.setField(svc, "uploadDir", "/tmp/test-uploads/");
         ReflectionTestUtils.setField(svc, "uploadUrl", "http://localhost:8080/static/");
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setScheme("http");
+        request.setServerName("localhost");
+        request.setServerPort(8080);
 
         org.springframework.web.multipart.MultipartFile empty = mock(org.springframework.web.multipart.MultipartFile.class);
         doReturn(true).when(empty).isEmpty();
-        try { svc.uploadImage(empty); } catch (Exception ignore) {}
+        try { svc.uploadImage(empty, request); } catch (Exception ignore) {}
 
         org.springframework.web.multipart.MultipartFile file = mock(org.springframework.web.multipart.MultipartFile.class);
         doReturn(false).when(file).isEmpty();
         doReturn("test.png").when(file).getOriginalFilename();
         doReturn(java.io.InputStream.nullInputStream()).when(file).getInputStream();
-        try { svc.uploadImage(file); } catch (Exception ignore) {}
+        try { svc.uploadImage(file, request); } catch (Exception ignore) {}
     }
 
     // ==================== 14. AiService ====================
