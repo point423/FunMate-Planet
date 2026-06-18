@@ -7,7 +7,7 @@ import com.zjgsu.pjt.backend.entity.ActivityDiary;
 import com.zjgsu.pjt.backend.entity.ActivityDiaryEntry;
 import com.zjgsu.pjt.backend.service.DiaryService;
 import com.zjgsu.pjt.backend.service.SharedJournalShowcaseService;
-import com.zjgsu.pjt.backend.util.FileStorageUtil;
+import com.zjgsu.pjt.backend.service.UploadService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -34,6 +34,9 @@ public class DiaryController {
 
     @Autowired
     private SharedJournalShowcaseService sharedJournalShowcaseService;
+
+    @Autowired
+    private UploadService uploadService;
 
     @PostMapping
     public Result<ActivityDiary> createDiary(HttpServletRequest request) {
@@ -78,7 +81,7 @@ public class DiaryController {
             List<String> imageUrls = new ArrayList<>();
             for (MultipartFile file : files) {
                 if (!file.isEmpty()) {
-                    String url = FileStorageUtil.saveFile(file);
+                    String url = uploadService.uploadImage(file, request);
                     if (url != null) imageUrls.add(url);
                 }
             }

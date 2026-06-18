@@ -1,8 +1,8 @@
 # 趣搭星球（FunMate Planet）
 
 [![CI](https://github.com/point423/FunMate-Planet/actions/workflows/ci.yml/badge.svg)](https://github.com/point423/FunMate-Planet/actions)
-[![Backend Service Coverage](https://img.shields.io/badge/Service%20Coverage-62%25-green.svg)](https://github.com/point423/FunMate-Planet)
-[![Frontend Coverage](https://img.shields.io/badge/Frontend%20Coverage-64%25-green.svg)](https://github.com/point423/FunMate-Planet)
+[![Backend Service Coverage](https://codecov.io/gh/point423/FunMate-Planet/branch/develop/graph/badge.svg?flag=backend)](https://codecov.io/gh/point423/FunMate-Planet)
+[![Frontend Coverage](https://codecov.io/gh/point423/FunMate-Planet/branch/develop/graph/badge.svg?flag=frontend)](https://codecov.io/gh/point423/FunMate-Planet)
 
 ## 团队成员
 | 姓名 | 学号 | 分工 |

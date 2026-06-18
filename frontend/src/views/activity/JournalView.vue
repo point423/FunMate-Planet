@@ -10,7 +10,7 @@
           @click="selectJournal(journal.id)"
         >
           <div class="jc-img">
-            <img :src="resolveDiaryCover(journal)" :alt="journal.title">
+          <img :src="resolveDiaryCoverForCurrentUser(journal)" :alt="journal.title">
           </div>
           <div class="jc-body">
             <div class="jc-title">{{ journal.title || journal.content || 'Untitled Journal' }}</div>
@@ -183,6 +183,16 @@ import { useActivityStore } from '@/stores/activity'
 import { useUserStore } from '@/stores/user'
 import { formatDate } from '@/utils/format'
 import type { SharedDiaryEntryPayload } from '@/types/diary'
+import {
+  detailCoverImageFromDiary,
+  fallbackAvatar,
+  getMyUploadedCoverFromDiary,
+  isDiaryOwner,
+  mergeDiaryList,
+  normalizeDiaryDetailPayload,
+  parseImages,
+  resolveDiaryCover,
+} from './journal-helpers'
 
 const route = useRoute()
 const router = useRouter()
@@ -199,46 +209,6 @@ const injectedDiary = ref<any | null>(null)
 const deletingDiaryId = ref<number | null>(null)
 const diaryDetailCache = ref<Record<number, any>>({})
 
-const parseImages = (images: any): string[] => {
-  if (!images) return []
-  if (Array.isArray(images)) return images.filter(Boolean)
-  if (typeof images === 'string') {
-    try {
-      const parsed = JSON.parse(images)
-      return Array.isArray(parsed) ? parsed.filter(Boolean) : [images]
-    } catch {
-      return images.split(',').filter(Boolean)
-    }
-  }
-  return []
-}
-
-const normalizeDiary = (raw: any) => {
-  if (!raw) return null
-  const images = parseImages(raw.images)
-  return {
-    ...raw,
-    title: raw.title || (raw.content ? `${raw.content.slice(0, 20)}${raw.content.length > 20 ? '...' : ''}` : 'Untitled Journal'),
-    images,
-    coverImage: images[0] || '',
-    participants: raw.participants || [],
-    sharedEntries: raw.sharedEntries || [],
-  }
-}
-
-const normalizeDiaryDetailPayload = (raw: any) => {
-  if (!raw) return null
-  const diary = raw.diary || raw
-  const participants = raw.participants || diary.participants || []
-  const sharedEntries = raw.sharedEntries || diary.sharedEntries || []
-
-  return normalizeDiary({
-    ...diary,
-    participants,
-    sharedEntries,
-  })
-}
-
 const cacheDiaryDetail = (raw: any) => {
   const normalized = normalizeDiaryDetailPayload(raw)
   if (normalized?.id) {
@@ -250,72 +220,21 @@ const cacheDiaryDetail = (raw: any) => {
   return normalized
 }
 
-const diaries = computed(() => {
-  const diariesList = actStore.diaries
-  const normalized = (!diariesList || !Array.isArray(diariesList) ? [] : diariesList)
-    .map((item: any) => {
-      const diary = item.diary || item
-      const cachedDiary = diaryDetailCache.value[Number(diary.id)]
-      const participants = item.participants || diary.participants || []
-      return cachedDiary || normalizeDiary({
-        ...diary,
-        participants,
-        sharedEntries: diary.sharedEntries || [],
-      })
-    })
-    .filter(Boolean)
-
-  if (!injectedDiary.value) {
-    return normalized
-  }
-
-  if (!normalized.some((item: any) => item.id === injectedDiary.value.id)) {
-    return [injectedDiary.value, ...normalized]
-  }
-
-  return normalized.map((item: any) => (item.id === injectedDiary.value.id ? injectedDiary.value : item))
-})
+const diaries = computed(() => mergeDiaryList(actStore.diaries, diaryDetailCache.value, injectedDiary.value))
 
 const activeDiary = computed(() => actStore.activeDiary || diaries.value.find((diary: any) => diary.id === activeId.value) || null)
-const canDeleteDiary = computed(() => Number(activeDiary.value?.userId) === Number(userStore.userInfo?.id))
+const canDeleteDiary = computed(() => isDiaryOwner(activeDiary.value?.userId, userStore.userInfo?.id))
 
-const detailCoverImage = computed(() => {
-  const images = parseImages(activeDiary.value?.images)
-  return images[0] || 'https://images.unsplash.com/photo-1517486808906-6ca8b3f04846?q=80&w=800'
-})
+const detailCoverImage = computed(() => detailCoverImageFromDiary(activeDiary.value))
 
-const coverFromImages = (images: any) =>
-  parseImages(images)[0] || 'https://images.unsplash.com/photo-1517486808906-6ca8b3f04846?q=80&w=400'
-
-const findMySharedEntry = (diary: any) => {
-  const currentUserId = Number(userStore.userInfo?.id ?? 0)
-  if (!currentUserId) return null
-
-  const entries = Array.isArray(diary?.sharedEntries) ? diary.sharedEntries : []
-  return entries.find((item: SharedDiaryEntryPayload) => Number(item.user?.id ?? item.entry?.userId ?? 0) === currentUserId) ?? null
-}
-
-const getMyUploadedCoverFromDiary = (diary: any, preferDraft = false) => {
-  const myEntry = findMySharedEntry(diary)
-  if (!myEntry) return ''
-
-  if (preferDraft) {
-    const draftImages = parseImages(entryDrafts.value[myEntry.user.id]?.images)
-    if (draftImages.length > 0) return draftImages[0]
-  }
-
-  const uploadedImages = parseImages(myEntry.entry?.images)
-  return uploadedImages[0] || ''
-}
-
-const resolveDiaryCover = (diary: any) =>
-  getMyUploadedCoverFromDiary(diary) || diary.coverImage || coverFromImages(diary.images)
-
-const myUploadedCoverImage = computed(() => getMyUploadedCoverFromDiary(activeDiary.value, true) || '')
-
-const fallbackAvatar = (seed: number) => `https://api.dicebear.com/7.x/avataaars/svg?seed=${seed}`
+const myUploadedCoverImage = computed(() =>
+  getMyUploadedCoverFromDiary(activeDiary.value, Number(userStore.userInfo?.id ?? 0), entryDrafts.value, true) || '',
+)
 
 const isMine = (userId: number) => userStore.userInfo?.id === userId
+
+const resolveDiaryCoverForCurrentUser = (diary: any) =>
+  resolveDiaryCover(diary, Number(userStore.userInfo?.id ?? 0), entryDrafts.value)
 
 const preloadDiaryCovers = async () => {
   const diaryIds = diaries.value

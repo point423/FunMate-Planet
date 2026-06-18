@@ -2,6 +2,7 @@ package com.zjgsu.pjt.backend.service;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -19,6 +20,7 @@ class UploadServiceTest {
     @Test
     void uploadImage_WritesFileAndReturnsPublicUrl() throws Exception {
         UploadService uploadService = uploadService();
+        MockHttpServletRequest request = request();
         MockMultipartFile file = new MockMultipartFile(
                 "file",
                 "avatar.png",
@@ -26,7 +28,7 @@ class UploadServiceTest {
                 "image-content".getBytes()
         );
 
-        String url = uploadService.uploadImage(file);
+        String url = uploadService.uploadImage(file, request);
 
         assertThat(url).startsWith("https://cdn.example/static/");
         assertThat(url).endsWith(".png");
@@ -37,6 +39,7 @@ class UploadServiceTest {
     @Test
     void uploadImage_UsesDefaultExtensionWhenOriginalNameHasNoExtension() throws Exception {
         UploadService uploadService = uploadService();
+        MockHttpServletRequest request = request();
         MockMultipartFile file = new MockMultipartFile(
                 "file",
                 "avatar",
@@ -44,7 +47,7 @@ class UploadServiceTest {
                 "image-content".getBytes()
         );
 
-        String url = uploadService.uploadImage(file);
+        String url = uploadService.uploadImage(file, request);
 
         assertThat(url).endsWith(".jpg");
     }
@@ -52,6 +55,7 @@ class UploadServiceTest {
     @Test
     void uploadImage_UsesUuidAndDefaultExtensionWhenOriginalNameIsNull() throws Exception {
         UploadService uploadService = uploadService();
+        MockHttpServletRequest request = request();
         MockMultipartFile file = new MockMultipartFile(
                 "file",
                 null,
@@ -59,7 +63,7 @@ class UploadServiceTest {
                 "image-content".getBytes()
         );
 
-        String url = uploadService.uploadImage(file);
+        String url = uploadService.uploadImage(file, request);
 
         assertThat(url).matches("https://cdn\\.example/static/[a-f0-9-]{36}\\.jpg");
     }
@@ -67,12 +71,13 @@ class UploadServiceTest {
     @Test
     void uploadImage_RejectsNullOrEmptyFile() {
         UploadService uploadService = uploadService();
+        MockHttpServletRequest request = request();
 
-        assertThatThrownBy(() -> uploadService.uploadImage(null))
+        assertThatThrownBy(() -> uploadService.uploadImage(null, request))
                 .isInstanceOf(IllegalArgumentException.class);
 
         MockMultipartFile empty = new MockMultipartFile("file", new byte[0]);
-        assertThatThrownBy(() -> uploadService.uploadImage(empty))
+        assertThatThrownBy(() -> uploadService.uploadImage(empty, request))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
@@ -81,5 +86,13 @@ class UploadServiceTest {
         ReflectionTestUtils.setField(uploadService, "uploadDir", tempDir.toString());
         ReflectionTestUtils.setField(uploadService, "uploadUrl", "https://cdn.example/static/");
         return uploadService;
+    }
+
+    private MockHttpServletRequest request() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setScheme("https");
+        request.setServerName("cdn.example");
+        request.setServerPort(443);
+        return request;
     }
 }

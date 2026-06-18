@@ -1,5 +1,6 @@
 server:
   port: ${PORT:8080}
+  forward-headers-strategy: framework
 
 spring:
   application:
@@ -42,7 +43,7 @@ jwt:
 # 文件上传配置
 upload:
   dir: ${UPLOAD_DIR:uploads/}
-  url: ${UPLOAD_PUBLIC_URL:http://localhost:${PORT:8080}/static/}
+  url: ${UPLOAD_PUBLIC_URL:}
 
 cors:
   allowed-origins: ${CORS_ALLOWED_ORIGINS:*}

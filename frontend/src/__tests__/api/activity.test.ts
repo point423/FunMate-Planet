@@ -1,10 +1,13 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import * as activityApi from '@/api/activity'
 import request from '@/api/index'
 
 vi.mock('@/api/index', () => ({
   default: {
-    post: vi.fn(),
     get: vi.fn(),
+    post: vi.fn(),
+    put: vi.fn(),
+    delete: vi.fn(),
   },
 }))
 
@@ -13,129 +16,120 @@ describe('API - activity.ts', () => {
     vi.clearAllMocks()
   })
 
-  describe('创建活动', () => {
-    it('成功创建活动应返回活动 ID', async () => {
-      const activityData = {
-        tag: 'reading',
-        title: 'Book Club',
-        description: 'Weekly book club meetup',
-        latitude: 39.9,
-        longitude: 116.4,
-        time: '2026-05-01T14:00:00Z',
-      }
-      
-      const mockResponse = { id: 1, ...activityData }
-      vi.mocked(request.post).mockResolvedValue(mockResponse)
-      
-      const result = await request.post('/activities', activityData)
-      
-      expect(result.id).toBe(1)
-      expect(request.post).toHaveBeenCalledWith('/activities', activityData)
-    })
+  it('creates, updates and fetches activities through the request client', async () => {
+    vi.mocked(request.post).mockResolvedValue({ id: 1 })
+    vi.mocked(request.put).mockResolvedValue({ id: 1 })
+    vi.mocked(request.get).mockResolvedValue({ id: 1 })
 
-    it('创建活动时缺少必需字段应返回错误', async () => {
-      const error = new Error('Missing required fields')
-      vi.mocked(request.post).mockRejectedValue(error)
-      
-      const invalidData = { title: 'Book Club' } // 缺少 tag 和 location
-      
-      await expect(
-        request.post('/activities', invalidData)
-      ).rejects.toThrow('Missing required fields')
+    await activityApi.createActivity({
+      title: 'Book Club',
+      description: 'Weekly meetup',
+      activityTime: '2026-06-20T18:00:00Z',
+      location: 'Library',
+      maxParticipants: 6,
+    })
+    await activityApi.updateActivity(1, { title: 'Updated title' })
+    await activityApi.getActivityDetail(1)
+    await activityApi.getActivities({ pageNum: 2, pageSize: 10, status: 1 })
+
+    expect(request.post).toHaveBeenCalledWith('/activities', expect.objectContaining({ title: 'Book Club' }))
+    expect(request.put).toHaveBeenCalledWith('/activities/1', { title: 'Updated title' })
+    expect(request.get).toHaveBeenCalledWith('/activities/1')
+    expect(request.get).toHaveBeenCalledWith('/activities', {
+      params: { pageNum: 2, pageSize: 10, status: 1 },
     })
   })
 
-  describe('获取日记', () => {
-    it('成功获取用户的所有日记', async () => {
-      const mockDiaries = [
-        { id: 1, title: 'First Journal', content: 'Great day!', date: '2026-04-28' },
-        { id: 2, title: 'Second Journal', content: 'Good memories', date: '2026-04-27' },
-      ]
-      
-      vi.mocked(request.get).mockResolvedValue(mockDiaries)
-      
-      const result = await request.get('/diaries')
-      
-      expect(result).toHaveLength(2)
-      expect(request.get).toHaveBeenCalledWith('/diaries')
+  it('handles activity participation and invitations', async () => {
+    vi.mocked(request.post).mockResolvedValue(undefined)
+    vi.mocked(request.get).mockResolvedValue({ incoming: [], outgoing: [] })
+
+    await activityApi.getMyActivities()
+    await activityApi.getCompletableActivities()
+    await activityApi.completeActivity(3)
+    await activityApi.endActivity(4)
+    await activityApi.joinActivity(5)
+    await activityApi.inviteActivityFriend(6, 8)
+    await activityApi.getActivityInvitations()
+    await activityApi.createActivityInvitation(6, 8)
+    await activityApi.handleActivityInvitation(9, true)
+
+    expect(request.get).toHaveBeenCalledWith('/activities/my')
+    expect(request.get).toHaveBeenCalledWith('/activities/completable')
+    expect(request.post).toHaveBeenCalledWith('/activities/3/complete', {})
+    expect(request.post).toHaveBeenCalledWith('/activities/4/complete', {})
+    expect(request.post).toHaveBeenCalledWith('/activities/5/join', {})
+    expect(request.post).toHaveBeenCalledWith('/activities/6/invite', { inviteeId: 8 })
+    expect(request.get).toHaveBeenCalledWith('/activity-invitations')
+    expect(request.post).toHaveBeenCalledWith('/activity-invitations', { activityId: 6, receiverId: 8 })
+    expect(request.post).toHaveBeenCalledWith('/activity-invitations/9/handle', { accept: true })
+  })
+
+  it('normalizes review scores before submitting participant reviews', async () => {
+    vi.mocked(request.post).mockResolvedValue(undefined)
+
+    await activityApi.reviewParticipant(2, {
+      revieweeId: 11,
+      rating: 2.6,
+      comment: 'Great teammate',
+    })
+    await activityApi.reviewParticipant(2, {
+      revieweeId: 12,
+      rating: 0,
+      comment: 'Needs improvement',
     })
 
-    it('用户没有日记时应返回空数组', async () => {
-      vi.mocked(request.get).mockResolvedValue([])
-      
-      const result = await request.get('/diaries')
-      
-      expect(result).toEqual([])
+    expect(request.post).toHaveBeenNthCalledWith(1, '/evaluations', {
+      targetId: 11,
+      activityId: 2,
+      scoreLevel: 3,
+    })
+    expect(request.post).toHaveBeenNthCalledWith(2, '/evaluations', {
+      targetId: 12,
+      activityId: 2,
+      scoreLevel: 1,
     })
   })
 
-  describe('创建日记', () => {
-    it('成功创建日记并上传照片', async () => {
-      const formData = new FormData()
-      formData.append('activityId', '1')
-      formData.append('title', 'Day at the Park')
-      formData.append('content', 'Had a wonderful time')
-      
-      const mockResponse = { id: 101, title: 'Day at the Park', photos: [] }
-      vi.mocked(request.post).mockResolvedValue(mockResponse)
-      
-      const result = await request.post('/diaries', formData)
-      
-      expect(result.id).toBe(101)
-      expect(result.title).toBe('Day at the Park')
-    })
+  it('loads evaluations, leaderboard and diary resources', async () => {
+    vi.mocked(request.get).mockResolvedValue([])
+    vi.mocked(request.put).mockResolvedValue({ ok: true })
+    vi.mocked(request.post).mockResolvedValue({ ok: true })
+    vi.mocked(request.delete).mockResolvedValue(undefined)
 
-    it('日记标题为空时应返回错误', async () => {
-      const error = new Error('Title cannot be empty')
-      vi.mocked(request.post).mockRejectedValue(error)
-      
-      const invalidFormData = new FormData()
-      invalidFormData.append('title', '')
-      
-      await expect(
-        request.post('/diaries', invalidFormData)
-      ).rejects.toThrow('Title cannot be empty')
-    })
+    await activityApi.getEvaluationsByEvaluator(7)
+    await activityApi.getLeaderboard()
+    await activityApi.createDiary(new FormData())
+    await activityApi.getMyDiaries({ pageNum: 1, pageSize: 5 })
+    await activityApi.getDiaryDetail(10)
+    await activityApi.updateMySharedDiaryEntry(10, { content: 'Updated entry', images: ['cover.png'] })
+    await activityApi.shareMySharedDiaryEntry(10)
+    await activityApi.deleteDiary(10)
+    await activityApi.deleteActivity(11)
 
-    it('上传过大文件应返回错误', async () => {
-      const error = new Error('File size exceeds limit')
-      vi.mocked(request.post).mockRejectedValue(error)
-      
-      const formData = new FormData()
-      formData.append('title', 'Journal')
-      // 模拟大文件
-      
-      await expect(
-        request.post('/diaries', formData)
-      ).rejects.toThrow('File size exceeds limit')
+    expect(request.get).toHaveBeenCalledWith('/evaluations/evaluator/7')
+    expect(request.get).toHaveBeenCalledWith('/activities/leaderboard')
+    expect(request.post).toHaveBeenCalledWith('/diaries', expect.any(FormData))
+    expect(request.get).toHaveBeenCalledWith('/diaries', { params: { pageNum: 1, pageSize: 5 } })
+    expect(request.get).toHaveBeenCalledWith('/diaries/10')
+    expect(request.put).toHaveBeenCalledWith('/diaries/10/entries/me', {
+      content: 'Updated entry',
+      images: ['cover.png'],
     })
+    expect(request.post).toHaveBeenCalledWith('/diaries/10/share-me', {})
+    expect(request.delete).toHaveBeenCalledWith('/diaries/10')
+    expect(request.delete).toHaveBeenCalledWith('/activities/11')
   })
 
-  describe('获取活动详情', () => {
-    it('成功获取活动详情', async () => {
-      const mockActivityDetail = {
-        id: 1,
-        tag: 'reading',
-        title: 'Book Club',
-        description: 'Weekly book club meetup',
-        participants: 5,
-        location: { latitude: 39.9, longitude: 116.4 },
-      }
-      
-      vi.mocked(request.get).mockResolvedValue(mockActivityDetail)
-      
-      const result = await request.get('/activities/1')
-      
-      expect(result.id).toBe(1)
-      expect(result.title).toBe('Book Club')
-      expect(request.get).toHaveBeenCalledWith('/activities/1')
-    })
+  it('wraps uploads in FormData before posting images', async () => {
+    vi.mocked(request.post).mockResolvedValue({ url: '/uploads/image.png' })
 
-    it('获取不存在的活动应返回 404', async () => {
-      const error = new Error('Activity not found')
-      vi.mocked(request.get).mockRejectedValue(error)
-      
-      await expect(request.get('/activities/99999')).rejects.toThrow('Activity not found')
-    })
+    const file = new File(['binary'], 'image.png', { type: 'image/png' })
+    await activityApi.uploadImage(file)
+
+    const [path, payload] = vi.mocked(request.post).mock.calls[0]
+    expect(path).toBe('/upload/image')
+    expect(payload).toBeInstanceOf(FormData)
+    expect((payload as FormData).get('file')).toBe(file)
   })
 })

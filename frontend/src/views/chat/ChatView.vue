@@ -389,11 +389,27 @@ import { useUserStore } from '@/stores/user'
 import { useRouter } from 'vue-router'
 import type { Activity, ActivityDetailResponse, ActivityInvitationPayload, ActivityStatus } from '@/types/activity'
 import type { JournalThumb, NearbyUser } from '@/types/user'
-import { getTagMeta } from '@/utils/tags'
+import {
+  activityStatusLabel,
+  buildConversationMap,
+  buildPartnerSummary,
+  buildSharedActivityEntry,
+  createPendingActivityEntry,
+  EMPTY_LAST_MESSAGE,
+  formatMsgTime,
+  getApplicationDisplayTags,
+  getLastCachedMessage,
+  getLocalMessageStorageKey,
+  mergeMessages,
+  normalizeBackendMessages,
+  normalizeUserShape,
+  removeInvalidMessageKeys,
+  type ActivityEntry,
+  type MsgItem,
+} from './chat-helpers'
 
 const userStore = useUserStore()
 const router = useRouter()
-const EMPTY_LAST_MESSAGE = 'No messages yet'
 const myAvatar = computed(() => userStore.userInfo?.avatar || '/default-avatar.png')
 
 const tab = ref<'partners' | 'applications'>('partners')
@@ -422,30 +438,6 @@ interface PartnerItem {
   score: number
   publicJournals: NearbyUser['publicJournals']
   recentActivities: NearbyUser['recentActivities']
-}
-
-interface MsgItem {
-  id?: string
-  content: string
-  mine: boolean
-  timestamp?: string
-}
-
-interface ActivityEntry {
-  activityId?: number
-  journalId?: number
-  title: string
-  date: string
-  scheduledAt: string
-  coverImg: string
-  intro: string
-  participants: string[]
-  participantIds: number[]
-  location: string
-  statusLabel: string
-  participantCount: number
-  maxParticipants: number
-  description: string
 }
 
 interface ApplicationItem {
